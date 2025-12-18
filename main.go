@@ -32,23 +32,99 @@ var f embed.FS
 var LogFile = "data/cloudflared.log"
 var runner *tunnel.Runner
 
-func main() {
-	// Load Env
-	envFile := os.Getenv("ENV_FILE")
-	if envFile != "" {
+// loadEnvironmentWithDockerSupport loads environment variables from .env file
+// and/or Docker environment exports with proper validation
+func loadEnvironmentWithDockerSupport() {
+	// Check if running in Docker (common indicators)
+	isDocker := false
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		isDocker = true
+		log.Println("[Init] Detected Docker environment")
+	}
+
+	// Try to load from custom ENV_FILE first
+	if envFile := os.Getenv("ENV_FILE"); envFile != "" {
 		if err := godotenv.Load(envFile); err != nil {
 			log.Printf("[Init] Warning: Failed to load env file %s: %v", envFile, err)
 		} else {
 			log.Printf("[Init] Loaded environment from %s", envFile)
 		}
 	} else {
+		// Try default .env file
 		if err := godotenv.Load(); err != nil {
-			// .env is optional, so we don't error, but we can log for debugging
-			// log.Println("[Init] No .env file found, using process environment")
+			if !isDocker {
+				// Only log in non-Docker environments, as .env files are uncommon in containers
+				log.Printf("[Init] No .env file found, using process environment")
+			}
 		} else {
 			log.Println("[Init] Loaded .env file")
 		}
 	}
+
+	// Validate critical environment variables and provide helpful error messages
+	validateRequiredEnvVars(isDocker)
+}
+
+// validateRequiredEnvVars checks if required environment variables are set
+func validateRequiredEnvVars(isDocker bool) {
+	requiredVars := map[string]string{
+		"ADMIN_USERNAME": "admin username for dashboard authentication",
+		"ADMIN_PASSWORD": "admin password for dashboard authentication",
+		"SECRET_KEY":     "session encryption key (auto-generated if not set)",
+	}
+
+	missingVars := []string{}
+
+	for varName, _ := range requiredVars {
+		if os.Getenv(varName) == "" {
+			// SECRET_KEY is optional as it can be auto-generated
+			if varName == "SECRET_KEY" {
+				log.Printf("[Init] %s not set, will auto-generate", varName)
+				continue
+			}
+			missingVars = append(missingVars, varName)
+		}
+	}
+
+	// Report missing variables with helpful guidance
+	if len(missingVars) > 0 {
+		log.Printf("[Init] Missing required environment variables: %s", strings.Join(missingVars, ", "))
+
+		if isDocker {
+			log.Println("[Init] Docker Environment Setup:")
+			log.Println("  Set environment variables using -e flag:")
+			log.Println("  docker run -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=password ...")
+			log.Println("  Or use Docker secrets for better security")
+		} else {
+			log.Println("[Init] Local Environment Setup:")
+			log.Println("  1. Copy .env.example to .env: cp .env.example .env")
+			log.Println("  2. Edit .env with your values")
+			log.Println("  3. Or set environment variables directly:")
+			for _, varName := range missingVars {
+				log.Printf("     export %s=your_%s", varName, strings.ToLower(varName))
+			}
+		}
+
+		// For Docker, we might want to exit if critical auth vars are missing
+		if isDocker && (contains(missingVars, "ADMIN_USERNAME") || contains(missingVars, "ADMIN_PASSWORD")) {
+			log.Fatal("[Init] Fatal: ADMIN_USERNAME and ADMIN_PASSWORD must be set in Docker environment")
+		}
+	}
+}
+
+// contains checks if a string exists in a slice
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func main() {
+	// Load Environment Variables with Docker Support
+	loadEnvironmentWithDockerSupport()
 
 	// Init Internal Packages
 	config.InitDB()

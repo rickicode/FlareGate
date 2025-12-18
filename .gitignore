@@ -8,7 +8,7 @@ flaregate
 .env.local
 .env.*.local
 
-
+data/
 
 # Database
 /data/*.db
