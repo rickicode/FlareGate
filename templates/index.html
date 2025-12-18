@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FlareGate Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- Keep SweetAlert2 available just in case, but using custom modals mainly -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec4899", // Updated to Pink
+                        "background-light": "#fdf4f9",
+                        "background-dark": "#111827", // Neutral dark for better contrast with pink
+                        "surface-dark": "#1f2937",     // Neutral surface
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        dialog {
+            background: transparent;
+            padding: 0;
+            margin: auto;
+            border: 0;
+            max-width: 100%;
+            max-height: 100%;
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+        }
+        .modal-overlay {
+            display: none;
+        }
+        /* JS Class approach for Open/Close */
+        .modal-visible {
+            display: flex;
+        }
+        
+        /* Animation */
+        .modal-visible > div {
+            animation: modal-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        @keyframes modal-pop {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-900 dark:text-gray-100 antialiased min-h-screen flex flex-col relative">
+
+<!-- MAIN DASHBOARD -->
+<!-- MAIN DASHBOARD -->
+{{ template "header" . }}
+
+<main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex flex-col gap-8">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div class="flex flex-col gap-2 max-w-2xl">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-2.5 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-bold tracking-wide uppercase">Active Configuration</span>
+            </div>
+            <h2 class="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
+                TunnelX by HIJILABS
+            </h2>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mt-2 max-w-xl">
+                {{ if .TunnelName }}Managing tunnel <b>{{ .TunnelName }}</b>.{{ end }} Connect local services to the edge securely without opening public ports.
+            </p>
+        </div>
+        <div class="flex items-center gap-4">
+            <!-- Health Status Card -->
+            <div class="bg-white dark:bg-surface-dark p-4 rounded-md shadow-sm border border-gray-100 dark:border-white/5 flex items-center gap-4 min-w-[160px]">
+                <div id="health-icon-bg" class="p-2 bg-gray-100 dark:bg-white/10 rounded-lg text-gray-500 transition-colors">
+                    <span class="material-symbols-outlined">health_and_safety</span>
+                </div>
+                <div>
+                     <div id="health-text" class="text-sm font-bold text-gray-900 dark:text-white leading-none mb-1">Checking...</div>
+                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Tunnel Status</div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-surface-dark p-4 rounded-md shadow-sm border border-gray-100 dark:border-white/5 flex items-center gap-4 min-w-[160px]">
+                <div class="p-2 bg-primary/20 rounded-lg text-primary">
+                    <span class="material-symbols-outlined">network_check</span>
+                </div>
+                <div>
+                    <!-- Count approx ingresses -->
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white leading-none">{{ len .Ingress }}</div>
+                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">Routes</div>
+                </div>
+            </div>
+
+            <!-- System Hostname Card -->
+            <div class="bg-gradient-to-br from-blue-900 to-blue-800 p-4 rounded-md shadow-sm border border-blue-600/20 flex items-center gap-4 min-w-[200px] relative overflow-hidden">
+                <div class="absolute inset-0 bg-blue-500/5"></div>
+                <div class="relative z-10 p-2 bg-blue-600/20 rounded-lg text-blue-300">
+                    {{ if .SystemHostname }}
+                        <span class="material-symbols-outlined">computer</span>
+                    {{ else }}
+                        <span class="material-symbols-outlined">add_circle</span>
+                    {{ end }}
+                </div>
+                <div class="relative z-10 flex-grow">
+                    {{ if .SystemHostname }}
+                        <div class="text-sm font-mono text-blue-300 leading-none truncate" title="{{ .SystemHostname }}">{{ .SystemHostname }}</div>
+                        <div class="text-xs font-medium text-blue-200/70 mt-1">System Hostname</div>
+                    {{ else }}
+                        <div class="text-sm font-bold text-blue-300 leading-none">Not Set</div>
+                        <div class="text-xs font-medium text-blue-200/70 mt-1">System Hostname</div>
+                    {{ end }}
+                </div>
+                <div class="relative z-10">
+                    {{ if .SystemHostname }}
+                    <a class="p-2 hover:bg-blue-700/30 rounded-lg text-blue-300 transition-colors" href="#" onclick="editSystemHostname(); return false;" title="Manage System Hostname">
+                        <span class="material-symbols-outlined">edit</span>
+                    </a>
+                    {{ else }}
+                    <a class="p-2 hover:bg-blue-700/30 rounded-lg text-blue-300 transition-colors" href="#" onclick="openSystemHostnameModal(); return false;" title="Add System Hostname">
+                        <span class="material-symbols-outlined">add_circle</span>
+                    </a>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- START NEW CONNECTION CARD -->
+    <div class="w-full flex items-center justify-between bg-surface-dark bg-gradient-to-r from-gray-900 to-gray-800 border border-white/5 rounded-md p-6 shadow-lg relative overflow-hidden">
+        <div class="absolute inset-0 bg-primary/5"></div>
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center gap-4 w-full justify-between">
+            <div class="flex flex-col gap-1">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    Start a New Connection
+                </h3>
+                <p class="text-gray-400 text-sm">
+                    Quickly add a new hostname to your tunnel configuration.
+                </p>
+            </div>
+            <a class="h-[46px] px-6 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 whitespace-nowrap" href="#" onclick="openModal('add-modal'); return false;">
+                <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                <span>Add New Hostname</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="w-full bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/5 rounded-md shadow-sm overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-gray-200 dark:border-white/5 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">list_alt</span>
+                Configured Routes
+            </h3>
+            <div class="flex gap-2">
+                 <button onclick="location.reload()" class="p-2 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-white/5">
+                    <span class="material-symbols-outlined text-[20px]">refresh</span>
+                 </button>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50 dark:bg-black/20 border-b border-gray-200 dark:border-white/5">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-2/5">Hostname</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-2/5">Origin Service</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right pr-8">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+                    {{ range .Ingress }}
+                    <tr class="group hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ingress-row" data-service="{{ .service }}">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-400 ingress-icon">
+                                        <span class="material-symbols-outlined text-[18px]">language</span>
+                                    </div>
+                                    <div class="font-semibold text-gray-900 dark:text-white text-sm">{{ .hostname }}</div>
+                                                                    </div>
+                                <span class="tunnel-health inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold" data-hostname="{{ .hostname }}">
+                                    <span class="tunnel-icon w-1.5 h-1.5 rounded-full"></span>
+                                    <span class="tunnel-text">--</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <span class="material-symbols-outlined text-gray-400 text-[16px] flex-shrink-0">dns</span>
+                                    <span class="font-mono text-sm text-gray-700 dark:text-gray-300 truncate">{{ .service }}</span>
+                                </div>
+                                <span class="service-health inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold flex-shrink-0 ml-2" data-hostname="{{ .hostname }}">
+                                    <span class="service-icon w-1.5 h-1.5 rounded-full"></span>
+                                    <span class="service-text">--</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity actions-cell">
+                                <a href="#"
+                                   onclick="openEditModal('{{ .hostname }}', '{{ .service }}'); openModal('edit-modal'); return false;"
+                                   class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors inline-flex items-center justify-center"
+                                   title="Edit">
+                                    <span class="material-symbols-outlined text-[20px]">edit</span>
+                                </a>
+                                <a href="#"
+                                   onclick="openDeleteModal('{{ .hostname }}'); openModal('delete-modal'); return false;"
+                                   class="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors inline-flex items-center justify-center"
+                                   title="Delete">
+                                    <span class="material-symbols-outlined text-[20px]">delete</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {{ end }}
+                    {{ if not .Ingress }}
+                    <tr>
+                         <td colspan="3" class="px-6 py-8 text-center text-gray-500">No hostnames configured yet. Add one above!</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+{{ template "footer" . }}
+
+<!-- MODALS -->
+<!-- Add Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="add-modal">
+    <div class="bg-surface-dark bg-gradient-to-br from-gray-900 to-black border border-primary/20 rounded-md w-full max-w-2xl relative overflow-hidden shadow-2xl flex flex-col">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-lg blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 w-64 h-64 bg-primary/10 rounded-lg blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+        
+        <div class="p-6 md:p-8 border-b border-white/10 relative z-10 flex justify-between items-start">
+            <div>
+                <h3 class="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">add_link</span>
+                    Add New Hostname
+                </h3>
+                <p class="text-gray-400 text-sm mt-1">Register a new hostname and map it to a local service.</p>
+            </div>
+            <a class="text-gray-400 hover:text-white transition-colors" href="#" onclick="closeModal('add-modal'); return false;">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+        </div>
+        <div class="p-6 md:p-8 relative z-10 flex flex-col gap-6">
+            <div class="flex flex-col gap-1">
+                <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Hostname</label>
+                <div class="flex gap-2">
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative group">
+                         <input id="add-subdomain" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain" type="text"/>
+                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <span class="material-symbols-outlined text-gray-600 text-[16px]">edit</span>
+                         </div>
+                    </div>
+                    <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1">.</div>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
+                         <select id="add-domain-select" class="w-full bg-transparent border-none text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
+                             <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
+                         </select>
+                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                             <span class="material-symbols-outlined text-[20px]">expand_more</span>
+                         </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1 ml-1" id="preview-hostname">Preview: ...</p>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Local Service Address</label>
+                <div class="flex w-full items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300">
+                    <div class="pl-4 pr-2 flex items-center justify-center pointer-events-none text-gray-500">
+                        <span class="material-symbols-outlined text-[20px]">dns</span>
+                    </div>
+                    <input id="add-service" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 font-mono" placeholder="http://localhost:8080" type="text"/>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
+            <a class="px-6 py-2.5 rounded-md text-sm font-medium text-gray-300 hover:bg-white/5 transition-colors" href="#" onclick="closeModal('add-modal'); return false;">Cancel</a>
+            <button id="btn-add-submit" class="px-8 py-2.5 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                <span>Add Route</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="edit-modal">
+    <div class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/10 rounded-md w-full max-w-lg shadow-2xl flex flex-col overflow-hidden">
+        <div class="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-gray-500">edit</span>
+                Edit Configuration
+            </h3>
+            <a class="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" href="#" onclick="closeModal('edit-modal'); return false;">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+        </div>
+        <div class="p-6 flex flex-col gap-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Hostname</label>
+                <div class="flex gap-2" id="edit-hostname-container">
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative group">
+                         <input id="edit-subdomain" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain" type="text"/>
+                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <span class="material-symbols-outlined text-gray-600 text-[16px]">edit</span>
+                         </div>
+                    </div>
+                    <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1">.</div>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
+                         <select id="edit-domain-select" class="w-full bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
+                             <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
+                         </select>
+                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                             <span class="material-symbols-outlined text-[20px]">expand_more</span>
+                         </div>
+                    </div>
+                </div>
+                <input id="edit-hostname" type="hidden" />
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Origin Service</label>
+                <input id="edit-service" class="w-full rounded-md bg-white dark:bg-background-dark border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:border-primary focus:ring-primary text-sm font-mono" type="text"/>
+            </div>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-black/20 flex justify-end gap-3">
+            <a class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/5 transition-colors" href="#" onclick="closeModal('edit-modal'); return false;">Cancel</a>
+            <button id="btn-edit-submit" class="px-6 py-2 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors shadow-md shadow-primary/20">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="delete-modal">
+    <div class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/10 rounded-md w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
+        <div class="p-6 pb-0 flex gap-4">
+            <div class="w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center text-red-600 shrink-0">
+                <span class="material-symbols-outlined text-2xl">warning</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Delete Tunnel Route?</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Are you sure you want to delete the route for <span id="delete-hostname" class="font-mono text-gray-700 dark:text-gray-300 font-semibold"></span>? This action cannot be undone.
+                </p>
+            </div>
+        </div>
+        <div class="p-6 flex justify-end gap-3 mt-2">
+            <a class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/5 transition-colors" href="#" onclick="closeModal('delete-modal'); return false;">Cancel</a>
+            <button id="btn-delete-confirm" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-md transition-colors shadow-md shadow-red-600/20">
+                Delete Route
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Change Tunnel Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="change-tunnel-modal">
+    <div class="bg-surface-dark bg-gradient-to-br from-gray-900 to-black border border-primary/20 rounded-md w-full max-w-lg shadow-2xl flex flex-col overflow-hidden relative">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-lg blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        
+        <div class="p-6 border-b border-white/10 relative z-10 flex justify-between items-center">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">swap_horiz</span>
+                Change Tunnel
+            </h3>
+            <a class="text-gray-400 hover:text-white transition-colors" href="#" onclick="closeModal('change-tunnel-modal'); return false;">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+        </div>
+        <div class="p-6 relative z-10 flex flex-col gap-4">
+            <p class="text-sm text-gray-400">Select another tunnel from your Cloudflare account to manage.</p>
+            <div class="flex flex-col gap-1">
+                <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Select Tunnel</label>
+                <div class="relative">
+                    <select id="change-tunnel-select" class="w-full bg-black/40 border border-white/10 rounded-md text-white focus:ring-2 focus:ring-primary/50 text-sm py-3 pl-4 pr-10 appearance-none cursor-pointer">
+                        <option value="" disabled selected>Loading tunnels...</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                        <span class="material-symbols-outlined text-[20px]">expand_more</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
+            <a class="px-5 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors" href="#" onclick="closeModal('change-tunnel-modal'); return false;">Cancel</a>
+            <button id="btn-change-tunnel-save" class="px-6 py-2 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors shadow-lg shadow-primary/20">
+                Switch Tunnel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- System Hostname Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="system-hostname-modal">
+    <div class="bg-surface-dark bg-gradient-to-br from-blue-900 to-blue-950 border border-blue-600/20 rounded-md w-full max-w-2xl relative overflow-hidden shadow-2xl flex flex-col">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-lg blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-lg blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+
+        <div class="p-6 md:p-8 border-b border-white/10 relative z-10 flex justify-between items-start">
+            <div>
+                <h3 class="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                    <span class="material-symbols-outlined text-blue-400">computer</span>
+                    Add System Hostname
+                </h3>
+                <p class="text-gray-400 text-sm mt-1">Add a hostname for this web application itself.</p>
+            </div>
+            <a class="text-gray-400 hover:text-white transition-colors" href="#" onclick="closeModal('system-hostname-modal'); return false;">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+        </div>
+        <div class="p-6 md:p-8 relative z-10 flex flex-col gap-6">
+            <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <p class="text-sm text-blue-300">
+                    <strong>Note:</strong> This will add a hostname that points to this web application running on port {{ .Port }}.
+                </p>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="block text-xs font-bold text-blue-400 mb-1 uppercase tracking-wider ml-1">Hostname</label>
+                <div class="flex gap-2">
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/10 transition-all duration-300 relative group">
+                         <input id="system-subdomain" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain" type="text"/>
+                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <span class="material-symbols-outlined text-gray-600 text-[16px]">edit</span>
+                         </div>
+                    </div>
+                    <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1">.</div>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/10 transition-all duration-300 relative">
+                         <select id="system-domain-select" class="w-full bg-transparent border-none text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
+                             <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
+                         </select>
+                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                             <span class="material-symbols-outlined text-[20px]">expand_more</span>
+                         </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1 ml-1">Subdomain for the system hostname</p>
+            </div>
+        </div>
+        <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
+            <a class="px-5 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors" href="#" onclick="closeModal('system-hostname-modal'); return false;">Cancel</a>
+            <button id="btn-system-hostname-save" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-md transition-colors shadow-lg shadow-blue-600/20">
+                Add Hostname
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // DASHBOARD JS
+    let hostnameToDelete = '';
+
+    // Modal Logic
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+        document.getElementById(modalId).classList.add('modal-visible');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('modal-visible');
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
+    // Change Tunnel Logic
+    function changeTunnel() {
+        openModal('change-tunnel-modal');
+        loadTunnelsForChange();
+    }
+
+    async function loadTunnelsForChange() {
+        const select = document.getElementById('change-tunnel-select');
+        select.innerHTML = '<option value="" disabled selected>Loading...</option>';
+        try {
+            const res = await fetch('/api/tunnels');
+            const data = await res.json();
+            if (data.success) {
+                select.innerHTML = '<option value="" disabled selected>Select a Tunnel...</option>';
+                data.result.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name;
+                    opt.dataset.name = t.name;
+                    select.appendChild(opt);
+                });
+            } else {
+                 select.innerHTML = '<option value="" disabled selected>Failed to load</option>';
+            }
+        } catch (e) {
+            select.innerHTML = '<option value="" disabled selected>Error loading</option>';
+        }
+    }
+
+    document.getElementById('btn-change-tunnel-save').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-change-tunnel-save');
+        const select = document.getElementById('change-tunnel-select');
+        const tunnelID = select.value;
+        const tunnelName = select.options[select.selectedIndex]?.dataset.name || 'Unnamed Tunnel';
+
+        if (!tunnelID) {
+            Swal.fire('Warning', 'Please select a tunnel', 'warning');
+            return;
+        }
+
+        const originalText = btn.innerText;
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm">refresh</span> Switching...';
+        btn.disabled = true;
+
+        console.log("Switching to tunnel:", tunnelID, tunnelName);
+
+        try {
+            const res = await fetch('/api/config/tunnel', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ tunnel_id: tunnelID, tunnel_name: tunnelName })
+            });
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            console.log("Response:", data);
+
+            if (data.success) {
+                // Immediate reload
+                window.location.reload();
+            } else {
+                Swal.fire('Error', data.error || 'Failed to switch', 'error');
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        } catch (e) {
+            console.error("Switch error:", e);
+            Swal.fire('Error', 'Network error: ' + e.message, 'error');
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    });
+
+    // Load Domains for Add Modal
+    async function loadDomains() {
+        const select = document.getElementById('add-domain-select');
+        try {
+            const res = await fetch('/api/zones');
+            const data = await res.json();
+            if (data.success) {
+                select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Select Domain...</option>';
+                data.result.forEach(zone => {
+                    const opt = document.createElement('option');
+                    opt.value = zone.name;
+                    opt.textContent = zone.name;
+                    opt.className = "bg-gray-900 text-white"; // Style for dark mode
+                    select.appendChild(opt);
+                });
+            } else {
+                 select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+            }
+        } catch (e) {
+            console.error(e);
+            select.innerHTML = '<option value="" disabled selected>Error loading domains</option>';
+        }
+    }
+
+    // Call loadDomains when modal target changes (naive but works) or just on load
+    loadDomains();
+
+    // Preview Logic
+    const subInput = document.getElementById('add-subdomain');
+    const domSelect = document.getElementById('add-domain-select');
+    const preview = document.getElementById('preview-hostname');
+
+    function updatePreview() {
+        const sub = subInput.value.trim();
+        const dom = domSelect.value;
+        if(dom) {
+            preview.textContent = `Preview: ${sub ? sub + '.' : ''}${dom}`;
+        } else {
+            preview.textContent = 'Preview: ...';
+        }
+    }
+    subInput.addEventListener('input', updatePreview);
+    domSelect.addEventListener('change', updatePreview);
+
+    // Add Hostname
+    document.getElementById('btn-add-submit').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-add-submit');
+        const subdomain = subInput.value.trim();
+        const domain = domSelect.value;
+        const service = document.getElementById('add-service').value;
+
+        if(!domain || !service) {
+            Swal.fire('Error', 'Please select a domain and enter a service address', 'error');
+            return;
+        }
+        
+        // Construct hostname: subdomain.domain or just domain if subdomain is empty (root)
+        const hostname = subdomain ? `${subdomain}.${domain}` : domain;
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Adding...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/hostname', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ hostname, service })
+            });
+            const data = await res.json();
+            
+            if (res.status === 409 && data.record) {
+                // Conflict detected
+                const rec = data.record;
+                Swal.fire({
+                    title: 'Hostname Exists!',
+                    html: `
+                        <div class="text-left bg-gray-100 dark:bg-white/10 p-4 rounded-lg text-sm mt-2">
+                            <p><strong>Hostname:</strong> ${hostname}</p>
+                            <p><strong>Type:</strong> <span class="font-mono text-primary">${rec.type}</span></p>
+                            <p><strong>Content:</strong> <span class="font-mono break-all">${rec.content}</span></p>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-500">Do you want to delete this existing record and replace it with your tunnel route?</p>
+                    `,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, Delete & Replace',
+                    cancelButtonText: 'Cancel'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        // Delete and Retry
+                        btn.innerHTML = '<span class="material-symbols-outlined animate-spin">delete</span> Deleting...';
+                        
+                        try {
+                             const delRes = await fetch('/api/dns', {
+                                method: 'DELETE',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ record_id: rec.id, hostname: hostname })
+                             });
+                             const delData = await delRes.json();
+                             
+                             if (delData.success) {
+                                 btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Creating...';
+                                 // Retry Creation recursively (or just copy paste fetch)
+                                 // Let's just re-trigger the click event? No, logic reuse better.
+                                 // Resubmit payload
+                                 const retryRes = await fetch('/api/hostname', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ hostname, service })
+                                });
+                                const retryData = await retryRes.json();
+                                if(retryData.success) {
+                                    closeModal('add-modal');
+                                    Swal.fire('Success', 'Route created successfully!', 'success').then(() => location.reload());
+                                } else {
+                                    Swal.fire('Error', retryData.error || 'Failed to create after delete', 'error');
+                                }
+                             } else {
+                                 Swal.fire('Error', 'Failed to delete existing record: ' + delData.error, 'error');
+                             }
+                        } catch(err) {
+                            Swal.fire('Error', 'Network error during delete', 'error');
+                        }
+                    }
+                });
+                return;
+            }
+
+            if(data.success) {
+                // Success: close modal and reload
+                closeModal('add-modal');
+                Swal.fire({
+                    icon: 'success', 
+                    title: 'Added!', 
+                    text: 'Hostname created successfully',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => location.reload());
+            } else {
+                Swal.fire('Error', data.error || data.errors?.[0]?.message || 'Failed to add', 'error');
+            }
+        } catch(e) {
+            console.error(e);
+            Swal.fire('Error', 'Network error', 'error');
+        } finally {
+            if (btn.innerText !== 'Adding...' && btn.innerHTML.indexOf('Deleting') === -1 && btn.innerHTML.indexOf('Creating') === -1) {
+                 // Only reset if not in the middle of our complex flow, catch block handles generic errors
+            }
+             // For simplicity, we enable button here if we returned without action (e.g. Cancel on Confirm)
+             // But SweetAlert is async. We should handle button state carefully.
+             // If we showed generic error, we enable.
+             // If we showed Confirm, we wait.
+             // Actually, if we hit the 409 return, we are 'done' with this function execution context, 
+             // but UI is blocked by SweetAlert. 
+             // We should re-enable button if 409 was shown so they can click again if they canceled.
+             if (btn.disabled && !document.querySelector('.swal2-container')) {
+                 btn.innerHTML = originalText;
+                 btn.disabled = false;
+             }
+             // Actually simple restore:
+             btn.innerHTML = originalText;
+             btn.disabled = false;
+        }
+    });
+
+    // OPEN Edit Modal - Populates data
+    function openEditModal(hostname, service) {
+        // Parse hostname to get subdomain and domain
+        const parts = hostname.split('.');
+        const subdomain = parts.length > 2 ? parts.slice(0, -2).join('.') : '';
+        const domain = parts.slice(-2).join('.');
+
+        // Set values in edit modal
+        document.getElementById('edit-subdomain').value = subdomain;
+        document.getElementById('edit-hostname').value = hostname; // Keep hidden field for compatibility
+        document.getElementById('edit-service').value = service;
+
+        // Enable editing for regular hostnames
+        document.getElementById('edit-subdomain').disabled = false;
+        document.getElementById('edit-domain-select').disabled = false;
+        document.getElementById('edit-service').disabled = false;
+
+        // Reset styling
+        document.getElementById('edit-subdomain').style.backgroundColor = '';
+        document.getElementById('edit-domain-select').style.backgroundColor = '';
+        document.getElementById('edit-service').style.backgroundColor = '';
+        document.getElementById('edit-service').style.cursor = '';
+
+        // Remove any existing system hostname note
+        const note = document.getElementById('system-hostnote');
+        if (note) note.remove();
+
+        // Set a flag to indicate this is NOT editing system hostname
+        window.editingSystemHostname = false;
+
+        // Load domains and set the current domain
+        loadEditDomains().then(() => {
+            const domainSelect = document.getElementById('edit-domain-select');
+            if (domainSelect) {
+                domainSelect.value = domain;
+            }
+        });
+
+        openModal('edit-modal');
+    }
+
+    // Submit Edit
+    document.getElementById('btn-edit-submit').addEventListener('click', async () => {
+         const btn = document.getElementById('btn-edit-submit');
+
+         // Build hostname from subdomain and domain
+         const subdomain = document.getElementById('edit-subdomain').value.trim();
+         const domain = document.getElementById('edit-domain-select').value;
+         const hostname = subdomain ? `${subdomain}.${domain}` : domain;
+
+         // Update hidden field for compatibility
+         document.getElementById('edit-hostname').value = hostname;
+
+         let service = document.getElementById('edit-service').value;
+
+         const originalText = btn.innerHTML;
+         btn.innerText = 'Saving...';
+         btn.disabled = true;
+
+         try {
+            let data;
+
+            // Check if editing system hostname
+            if (window.editingSystemHostname) {
+                // For system hostname, force service to current port
+                service = `http://localhost:{{ .Port }}`;
+
+                // Use different API endpoint for system hostname
+                const res = await fetch('/api/hostname', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ hostname, service })
+                });
+                data = await res.json();
+
+                if(data.success) {
+                    // Update system hostname in config if changed
+                    const cfg = await (await fetch('/api/system-hostname')).json();
+                    if (cfg.success && cfg.systemHostname !== hostname) {
+                        await fetch('/api/system-hostname-update', {
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ hostname })
+                        });
+                    }
+                }
+            } else {
+                // Regular hostname edit
+                const res = await fetch('/api/hostname', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ hostname, service })
+                });
+                data = await res.json();
+            }
+
+            if(data.success) {
+                closeModal('edit-modal');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Updated!',
+                    timer: 1500
+                }).then(() => location.reload());
+            } else {
+                Swal.fire('Error', data.error || 'Failed to update', 'error');
+            }
+         } catch(e) {
+             Swal.fire('Error', 'Network error', 'error');
+         } finally {
+             btn.innerHTML = originalText;
+             btn.disabled = false;
+             // Reset system hostname editing flag
+             window.editingSystemHostname = false;
+             // Re-enable service field
+             document.getElementById('edit-service').disabled = false;
+             document.getElementById('edit-service').style.backgroundColor = '';
+             document.getElementById('edit-service').style.cursor = '';
+             // Remove system hostname note
+             const note = document.getElementById('system-hostnote');
+             if (note) note.remove();
+         }
+    });
+
+    // OPEN Delete Modal
+    function openDeleteModal(hostname) {
+        hostnameToDelete = hostname;
+        document.getElementById('delete-hostname').textContent = hostname;
+    }
+
+    // Submit Delete
+    document.getElementById('btn-delete-confirm').addEventListener('click', async () => {
+         const btn = document.getElementById('btn-delete-confirm');
+         const originalText = btn.innerHTML;
+         btn.innerText = 'Deleting...';
+         btn.disabled = true;
+
+         try {
+            const res = await fetch('/api/hostname', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ hostname: hostnameToDelete, service: 'dummy' })
+            });
+            const data = await res.json();
+            if(data.success) {
+                closeModal('delete-modal');
+                Swal.fire({
+                    icon: 'success', 
+                    title: 'Deleted!', 
+                    timer: 1500
+                }).then(() => location.reload());
+            } else {
+                Swal.fire('Error', data.error || 'Failed to delete', 'error');
+            }
+         } catch(e) {
+             Swal.fire('Error', 'Network error', 'error');
+         } finally {
+             btn.innerHTML = originalText;
+             btn.disabled = false;
+         }
+    });
+
+    // Health Check
+    const healthText = document.getElementById('health-text');
+    const healthIconBg = document.getElementById('health-icon-bg');
+
+    async function checkHealth() {
+        try {
+            const res = await fetch('/api/health');
+            const data = await res.json();
+            if(data.status === 'running') {
+                healthText.textContent = 'Running';
+                healthText.className = 'text-sm font-bold text-green-600 dark:text-green-400 leading-none mb-1';
+                healthIconBg.className = 'p-2 bg-green-100 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400 transition-colors';
+            } else {
+                healthText.textContent = 'Stopped';
+                healthText.className = 'text-sm font-bold text-red-600 dark:text-red-400 leading-none mb-1';
+                healthIconBg.className = 'p-2 bg-red-100 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400 transition-colors';
+            }
+        } catch(e) {
+            console.error(e);
+            healthText.textContent = 'Unknown';
+        }
+    }
+    
+    // Check immediately and then every 5s
+    checkHealth();
+    setInterval(checkHealth, 5000);
+
+    // Service and Tunnel Health Check
+    async function checkServiceAndTunnelHealth() {
+        try {
+            // Collect all hostname and service data from the page
+            const serviceElements = document.querySelectorAll('.service-health');
+            const services = [];
+
+            serviceElements.forEach(el => {
+                const hostname = el.getAttribute('data-hostname');
+                if (hostname) {
+                    // Find the service URL from the table cell
+                    const serviceCell = el.closest('tr').querySelector('.font-mono');
+                    const service = serviceCell ? serviceCell.textContent.trim() : '';
+                    services.push({ hostname, service });
+                }
+            });
+
+            if (services.length === 0) {
+                // No services to check
+                return;
+            }
+
+            // Send data to the API
+            const response = await fetch('/api/service-health', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ services })
+            });
+
+            // Check if the response is ok
+            if (!response.ok) {
+                console.error('API response not ok:', response.status, response.statusText);
+                document.querySelectorAll('.service-health').forEach(el => {
+                    updateHealthStatus(el, 'unknown', 'Error');
+                });
+                document.querySelectorAll('.tunnel-health').forEach(el => {
+                    updateHealthStatus(el, 'unknown', 'Error');
+                });
+                return;
+            }
+
+            const data = await response.json();
+            console.log('API response:', data);
+
+            if (!data.success) {
+                console.error('Failed to get service health:', data.error);
+                // Set status to unknown for all services if API fails
+                document.querySelectorAll('.service-health').forEach(el => {
+                    updateHealthStatus(el, 'unknown', 'Error');
+                });
+                document.querySelectorAll('.tunnel-health').forEach(el => {
+                    updateHealthStatus(el, 'unknown', 'Error');
+                });
+                return;
+            }
+
+            // Check if health_checks exists and is an array
+            if (!data.health_checks || !Array.isArray(data.health_checks)) {
+                console.error('Invalid health checks data:', data);
+                // Set status to unknown for all services
+                document.querySelectorAll('.service-health').forEach(el => {
+                    updateHealthStatus(el, 'unknown', 'No Data');
+                });
+                document.querySelectorAll('.tunnel-health').forEach(el => {
+                    updateHealthStatus(el, data.tunnel_running ? 'unknown' : 'offline', data.tunnel_running ? 'No Data' : 'Stopped');
+                });
+                return;
+            }
+
+            // Update each service's health status
+            data.health_checks.forEach(check => {
+                const serviceElement = document.querySelector(`.service-health[data-hostname="${check.hostname}"]`);
+                const tunnelElement = document.querySelector(`.tunnel-health[data-hostname="${check.hostname}"]`);
+
+                if (serviceElement) {
+                    updateHealthStatus(serviceElement, check.origin_status, check.response_time);
+                }
+
+                if (tunnelElement) {
+                    if (data.tunnel_running && check.tunnel_status === 'online') {
+                        updateHealthStatus(tunnelElement, 'online', check.response_time);
+                    } else if (!data.tunnel_running) {
+                        updateHealthStatus(tunnelElement, 'unknown', 'Stopped');
+                    } else {
+                        updateHealthStatus(tunnelElement, 'offline', check.response_time);
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error checking service health:', error);
+            // Set status to unknown for all services on error
+            document.querySelectorAll('.service-health').forEach(el => {
+                updateHealthStatus(el, 'unknown', 'Error');
+            });
+            document.querySelectorAll('.tunnel-health').forEach(el => {
+                updateHealthStatus(el, 'unknown', 'Error');
+            });
+        }
+    }
+
+    function updateHealthStatus(element, status, responseTime) {
+        const icon = element.querySelector('span:first-child');
+        const text = element.querySelector('span:last-child');
+
+        // Remove existing classes
+        element.className = element.className.replace(/bg-\w+\/?\d*|text-\w+|border/g, '').trim() + ' inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold';
+
+        switch(status) {
+            case 'online':
+                element.classList.add('bg-green-100/10', 'text-green-600', 'dark:bg-green-900/20', 'dark:text-green-400', 'border', 'border-green-600/20');
+                icon.style.backgroundColor = '#10b981';
+                icon.className = 'w-1.5 h-1.5 rounded-full';
+                text.textContent = typeof responseTime === 'number' && responseTime > 0 ? `${responseTime}ms` : 'Online';
+                break;
+            case 'offline':
+                element.classList.add('bg-red-100/10', 'text-red-600', 'dark:bg-red-900/20', 'dark:text-red-400', 'border', 'border-red-600/20');
+                icon.style.backgroundColor = '#ef4444';
+                icon.className = 'w-1.5 h-1.5 rounded-full';
+                text.textContent = typeof responseTime === 'number' && responseTime > 0 ? `${responseTime}ms` : 'Offline';
+                break;
+            case 'unknown':
+            default:
+                element.classList.add('bg-gray-100/10', 'text-gray-500', 'dark:bg-gray-900/20', 'dark:text-gray-400', 'border', 'border-gray-600/20');
+                icon.style.backgroundColor = '#6b7280';
+                icon.className = 'w-1.5 h-1.5 rounded-full';
+                text.textContent = responseTime || 'Unknown';
+                break;
+        }
+    }
+
+    // Check service and tunnel health once when page loads
+    checkServiceAndTunnelHealth();
+
+    // System Hostname Functions
+    function openSystemHostnameModal() {
+        // Load zones first
+        loadSystemZones();
+        openModal('system-hostname-modal');
+    }
+
+    function editSystemHostname() {
+        // Get current system hostname
+        const currentHostname = '{{ .SystemHostname }}';
+
+        // Parse hostname to get subdomain and domain
+        const parts = currentHostname.split('.');
+        const subdomain = parts.length > 2 ? parts.slice(0, -2).join('.') : '';
+        const domain = parts.slice(-2).join('.');
+
+        // Set values in edit modal
+        document.getElementById('edit-subdomain').value = subdomain;
+        document.getElementById('edit-hostname').value = currentHostname; // Keep hidden field for compatibility
+        document.getElementById('edit-service').value = `http://localhost:{{ .Port }}`;
+
+        // Disable service editing for system hostname, but allow hostname editing
+        document.getElementById('edit-service').disabled = true;
+        document.getElementById('edit-service').style.backgroundColor = '#1f2937';
+        document.getElementById('edit-service').style.cursor = 'not-allowed';
+
+        // Keep hostname fields enabled for editing
+        document.getElementById('edit-subdomain').disabled = false;
+        document.getElementById('edit-domain-select').disabled = false;
+        document.getElementById('edit-subdomain').style.backgroundColor = '';
+        document.getElementById('edit-domain-select').style.backgroundColor = '';
+
+        // Add a note about system hostname
+        const serviceContainer = document.getElementById('edit-service').parentElement;
+        if (!document.getElementById('system-hostnote')) {
+            const note = document.createElement('p');
+            note.id = 'system-hostnote';
+            note.className = 'text-xs text-blue-400 mt-1';
+            note.textContent = 'System hostname service cannot be changed';
+            serviceContainer.parentElement.appendChild(note);
+        }
+
+        // Set a flag to indicate this is editing system hostname
+        window.editingSystemHostname = true;
+
+        // Load domains and set the current domain
+        loadEditDomains().then(() => {
+            const domainSelect = document.getElementById('edit-domain-select');
+            if (domainSelect) {
+                domainSelect.value = domain;
+            }
+        });
+
+        openModal('edit-modal');
+    }
+
+    async function loadEditDomains() {
+        const select = document.getElementById('edit-domain-select');
+        try {
+            const res = await fetch('/api/zones');
+            const data = await res.json();
+            if (data.success) {
+                select.innerHTML = '';
+                data.result.forEach(zone => {
+                    const opt = document.createElement('option');
+                    opt.value = zone.name;
+                    opt.textContent = zone.name;
+                    opt.className = "bg-gray-900 text-white";
+                    select.appendChild(opt);
+                });
+            } else {
+                select.innerHTML = '<option value="" disabled class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+            }
+        } catch (err) {
+            console.error('Failed to load zones:', err);
+            select.innerHTML = '<option value="" disabled class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+        }
+    }
+
+    async function loadSystemZones() {
+        const select = document.getElementById('system-domain-select');
+        try {
+            const res = await fetch('/api/zones');
+            const data = await res.json();
+            if (data.success) {
+                select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Select Domain...</option>';
+                data.result.forEach(zone => {
+                    const opt = document.createElement('option');
+                    opt.value = zone.name;
+                    opt.textContent = zone.name;
+                    opt.className = "bg-gray-900 text-white"; // Style for dark mode
+                    select.appendChild(opt);
+                });
+            } else {
+                select.innerHTML = '<option value="" disabled class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+            }
+        } catch (err) {
+            console.error('Failed to load zones:', err);
+            select.innerHTML = '<option value="" disabled class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+        }
+    }
+
+    // System hostname save button handler
+    document.getElementById('btn-system-hostname-save').addEventListener('click', async function() {
+        const subdomain = document.getElementById('system-subdomain').value.trim();
+        const domainSelect = document.getElementById('system-domain-select');
+        const domain = domainSelect.value;
+
+        if (!subdomain) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please enter a subdomain',
+                background: '#1f2937',
+                color: '#f3f4f6'
+            });
+            return;
+        }
+
+        const hostname = subdomain ? `${subdomain}.${domain}` : domain;
+        const port = '{{ .Port }}' || '8020';
+        const service = `http://localhost:${port}`;
+
+        try {
+            this.disabled = true;
+            this.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Adding...';
+
+            const res = await fetch('/api/system-hostname', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ hostname, service })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                closeModal('system-hostname-modal');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'System hostname added successfully!',
+                    background: '#1f2937',
+                    color: '#f3f4f6'
+                }).then(() => {
+                    // Reload page to show the new system hostname
+                    window.location.reload();
+                });
+            } else {
+                throw new Error(data.error || 'Failed to add system hostname');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message,
+                background: '#1f2937',
+                color: '#f3f4f6'
+            });
+        } finally {
+            this.disabled = false;
+            this.innerHTML = 'Add Hostname';
+        }
+    });
+</script>
+</body></html>

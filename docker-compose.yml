@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  flaregate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flaregate
+    restart: unless-stopped
+    ports:
+      - "8020:8020"
+    environment:
+      - PORT=8020
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-this-password}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - flaregate-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8020/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  
+networks:
+  flaregate-network:
+    driver: bridge
+
+volumes:
+  flaregate-data:
+    driver: local

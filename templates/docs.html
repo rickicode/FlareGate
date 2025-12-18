@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation - TunnelX</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Override prose styles for dark theme */
+        .prose h1 {
+            color: #111827;
+        }
+        .dark .prose h1 {
+            color: #f9fafb;
+        }
+        .prose h2 {
+            color: #111827;
+        }
+        .dark .prose h2 {
+            color: #f9fafb;
+        }
+        .prose h3 {
+            color: #111827;
+        }
+        .dark .prose h3 {
+            color: #f9fafb;
+        }
+        .prose h4 {
+            color: #111827;
+        }
+        .dark .prose h4 {
+            color: #f9fafb;
+        }
+        .prose p {
+            color: #374151;
+        }
+        .dark .prose p {
+            color: #d1d5db;
+        }
+        .prose code {
+            background-color: #f3f4f6;
+            color: #111827;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+        }
+        .dark .prose code {
+            background-color: #1f2937;
+            color: #f3f4f6;
+        }
+        .prose pre {
+            background-color: #111827;
+            color: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+        }
+        .dark .prose pre {
+            background-color: #030712;
+            color: #e5e7eb;
+        }
+        .prose ul {
+            color: #374151;
+        }
+        .dark .prose ul {
+            color: #d1d5db;
+        }
+        .prose ol {
+            color: #374151;
+        }
+        .dark .prose ol {
+            color: #d1d5db;
+        }
+        .prose a {
+            color: #ec4899;
+            text-decoration: underline;
+        }
+        .prose a:hover {
+            color: #db2777;
+        }
+        .dark .prose a:hover {
+            color: #f472b6;
+        }
+        .prose li {
+            color: #4b5563;
+        }
+        .dark .prose li {
+            color: #9ca3af;
+        }
+        .prose strong {
+            color: #111827;
+            font-weight: 600;
+        }
+        .dark .prose strong {
+            color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-900 dark:text-gray-100 antialiased min-h-screen flex flex-col relative">
+    {{ template "header" . }}
+
+    <main class="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div class="prose prose-gray dark:prose-invert max-w-none">
+            <h1 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-white mb-8">TunnelX Documentation</h1>
+
+            <div class="space-y-12">
+                <!-- Getting Started Section -->
+                <section class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/5 rounded-md shadow-sm overflow-hidden p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                        <span class="material-symbols-outlined text-primary">rocket_launch</span>
+                        Getting Started
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">What is FlareGate?</h3>
+                            <p class="text-gray-600 dark:text-gray-400">
+                                A lightweight, high-performance web dashboard to manage Cloudflare Tunnel hostnames and ingress rules.
+                                Built with Go and Tailwind CSS, it simplifies the process of mapping public domains to local services
+                                without manually editing YAML files or using the Cloudflare Zero Trust dashboard.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Prerequisites</h3>
+                            <ul class="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-2">
+                                <li>Cloudflare account with a registered domain</li>
+                                <li>cloudflared installed on your system</li>
+                                <li>Go 1.25+ (if building from source)</li>
+                                <li>GCC (for CGO compilation with SQLite)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- API Token Section -->
+                <section class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/5 rounded-md shadow-sm overflow-hidden p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                        <span class="material-symbols-outlined text-primary">vpn_key</span>
+                        Getting API Token
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                            <p class="text-amber-800 dark:text-amber-200 text-sm">
+                                <strong>Important:</strong> The API token is required for managing tunnels and DNS records through this dashboard.
+                            </p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Step 1: Log in to Cloudflare</h3>
+                            <ol class="list-decimal list-inside space-y-4 text-gray-600 dark:text-gray-400">
+                                <li>
+                                    <p>Go to <a href="https://dash.cloudflare.com" target="_blank" class="text-primary hover:underline">https://dash.cloudflare.com</a> and log in to your account.</p>
+                                </li>
+                            </ol>
+
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Step 2: Navigate to API Tokens</h3>
+                            <ol start="2" class="list-decimal list-inside space-y-4 text-gray-600 dark:text-gray-400">
+                                <li>
+                                    <p>In the right sidebar, click on <strong>"Get your API token"</strong> or navigate to: <strong>"My Profile" → "API Tokens"</strong></p>
+                                </li>
+                                <li>
+                                    <p>Click the <strong>"Create Token"</strong> button.</p>
+                                </li>
+                            </ol>
+
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Step 3: Create Custom Token</h3>
+                            <ol start="4" class="list-decimal list-inside space-y-4 text-gray-600 dark:text-gray-400">
+                                <li>
+                                    <p>Click on <strong>"Custom token"</strong> to create a token with specific permissions.</p>
+                                </li>
+                                <li>
+                                    <p>Fill in the token details:</p>
+                                    <div class="bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/5 rounded-md p-4 mt-2">
+                                        <ul class="list-disc list-inside space-y-2 text-sm">
+                                            <li><strong>Token name:</strong> Enter a descriptive name (e.g., "Tunnel Manager")</li>
+                                            <li><strong>Permissions:</strong> Add the following permissions:
+                                                <ul class="list-circle list-inside ml-4 mt-2 space-y-1 text-sm">
+                                                    <li><code>Zone:Zone:Read</code> - Read zone information</li>
+                                                    <li><code>Zone:DNS:Edit</code> - Edit DNS records</li>
+                                                    <li><code>Account:Cloudflare Tunnel:Edit</code> - Manage tunnels</li>
+                                                    <li><code>Account:Cloudflare Tunnel:Read</code> - Read tunnel configurations</li>
+                                                    <li><code>User:User Details:Read</code> - Read user details (optional)</li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>Zone Resources:</strong>
+                                                <ul class="list-circle list-inside ml-4 mt-2 space-y-1 text-sm">
+                                                    <li>Select <strong>"Include"</strong></li>
+                                                    <li>Choose <strong>"All zones"</strong> from the dropdown (or specific zones if preferred)</li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>Account Resources:</strong>
+                                                <ul class="list-circle list-inside ml-4 mt-2 space-y-1 text-sm">
+                                                    <li>Select <strong>"Include"</strong></li>
+                                                    <li>Choose <strong>"All accounts"</strong> from the dropdown</li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li>
+                                    <p>Click <strong>"Continue to summary"</strong> to review the token permissions.</p>
+                                </li>
+                                <li>
+                                    <p>Verify the permissions and click <strong>"Create Token"</strong>.</p>
+                                </li>
+                            </ol>
+
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Step 4: Copy the Token</h3>
+                            <ol start="9" class="list-decimal list-inside space-y-4 text-gray-600 dark:text-gray-400">
+                                <li>
+                                    <p>Copy the generated API token immediately. You won't be able to see it again.</p>
+                                </li>
+                                <li>
+                                    <p>Store the token securely - you'll need it to configure the Tunnel Manager.</p>
+                                </li>
+                            </ol>
+                        </div>
+
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                            <h4 class="font-semibold text-blue-800 dark:text-blue-200 mb-2">Pro Tip</h4>
+                            <p class="text-blue-700 dark:text-blue-300 text-sm">
+                                Consider using a password manager to store your API token securely. The token provides access to your Cloudflare account, so treat it like a password.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Installation Section -->
+                <section class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/5 rounded-md shadow-sm overflow-hidden p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                        <span class="material-symbols-outlined text-primary">download</span>
+                        Installation & Setup
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Install cloudflared</h3>
+                            <div class="bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/5 rounded-md p-4">
+                                <h4 class="font-semibold mb-2">Linux (deb/rpm):</h4>
+                                <pre class="bg-gray-900 text-gray-100 p-3 rounded-md text-sm overflow-x-auto"><code># For Debian/Ubuntu
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+
+# For RHEL/CentOS
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-x86_64.rpm
+sudo rpm -i cloudflared-linux-x86_64.rpm</code></pre>
+
+                                <h4 class="font-semibold mb-2 mt-4">macOS:</h4>
+                                <pre class="bg-gray-900 text-gray-100 p-3 rounded-md text-sm overflow-x-auto"><code># Using Homebrew
+brew install cloudflared
+
+# Or download manually
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tar.gz
+tar -xzf cloudflared-darwin-amd64.tar.gz
+sudo mv cloudflared /usr/local/bin/</code></pre>
+
+                                <h4 class="font-semibold mb-2 mt-4">Windows:</h4>
+                                <pre class="bg-gray-900 text-gray-100 p-3 rounded-md text-sm overflow-x-auto"><code># Using Chocolatey
+choco install cloudflared
+
+# Or download from GitHub
+# https://github.com/cloudflare/cloudflared/releases/latest</code></pre>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Configure Environment Variables</h3>
+                            <p>Create a <code>.env</code> file in the application directory:</p>
+                            <pre class="bg-gray-900 text-gray-100 p-3 rounded-md text-sm overflow-x-auto mt-2"><code>PORT=8020
+SECRET_KEY=your-secret-key-here
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your-secure-password</code></pre>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Build and Run</h3>
+                            <pre class="bg-gray-900 text-gray-100 p-3 rounded-md text-sm overflow-x-auto"><code># Clone or download the repository
+cd CloudflareTunnel
+
+# Install dependencies
+go mod tidy
+
+# Build the application
+go build -o tunnel-manager
+
+# Run the application
+./tunnel-manager</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Usage Section -->
+                <section class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/5 rounded-md shadow-sm overflow-hidden p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                        <span class="material-symbols-outlined text-primary">settings_suggest</span>
+                        Usage Guide
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Initial Setup</h3>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
+                                <li>Access the dashboard at <code>http://localhost:8020</code></li>
+                                <li>Login with the credentials you set in the .env file</li>
+                                <li>Enter your Cloudflare API token when prompted</li>
+                                <li>Select or create a tunnel to manage</li>
+                            </ol>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Managing Hostnames</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-600 dark:text-gray-400">
+                                <li><strong>Add New Hostname:</strong> Click "Add New Hostname" and enter subdomain and select domain</li>
+                                <li><strong>Edit Hostname:</strong> Click the edit icon on any configured route</li>
+                                <li><strong>Delete Hostname:</strong> Click the delete icon to remove a route</li>
+                                <li><strong>System Hostname:</strong> Add a hostname for the dashboard itself (shown at top)</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Monitoring</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-600 dark:text-gray-400">
+                                <li>View tunnel status in real-time on the dashboard</li>
+                                <li>Check service health indicators for each route</li>
+                                <li>View tunnel logs in the Logs tab</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Troubleshooting Section -->
+                <section class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/5 rounded-md shadow-sm overflow-hidden p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                        <span class="material-symbols-outlined text-primary">troubleshoot</span>
+                        Troubleshooting
+                    </h2>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Common Issues</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 dark:text-gray-300">API Token Permission Denied</h4>
+                                    <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                        Ensure your API token has all required permissions: Zone:Read, Zone:DNS:Edit, Account:Cloudflare Tunnel:Edit, Account:Cloudflare Tunnel:Read
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 dark:text-gray-300">Tunnel Won't Start</h4>
+                                    <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                        Check if cloudflared is installed and in your PATH. Verify the tunnel configuration is valid.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 dark:text-gray-300">Service Shows Offline</h4>
+                                    <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                        Ensure your local service is running and accessible at the specified address (e.g., http://localhost:8080)
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 dark:text-gray-300">Port Already in Use</h4>
+                                    <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                        Kill the process using the port: <code>fuser -k 8020/tcp</code> or change the PORT in your .env file
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    {{ template "footer" . }}
+</body>
+</html>

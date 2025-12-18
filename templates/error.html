@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Error {{ .Code }} - FlareGate Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec4899", // Pink
+                        "background-light": "#fdf4f9",
+                        "background-dark": "#111827", 
+                        "surface-dark": "#1f2937",     
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-900 dark:text-gray-100 antialiased min-h-screen flex flex-col relative overflow-hidden">
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-lg blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-lg blur-[120px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+<nav class="w-full border-b border-gray-200 dark:border-white/10 bg-white/50 dark:bg-background-dark/80 backdrop-blur-md sticky top-0 z-50">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex items-center justify-between h-20">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl">cloud_queue</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">Tunnel Dash</h1>
+<span class="text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide uppercase mt-1">Cloudflare Manager</span>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<main class="flex-grow flex items-center justify-center relative z-10 px-4">
+<div class="w-full max-w-2xl text-center">
+<div class="relative inline-block mb-8">
+<h1 class="text-[120px] md:text-[180px] font-bold text-transparent bg-clip-text bg-gradient-to-br from-primary via-purple-500 to-primary leading-none tracking-tighter select-none relative z-10">
+    {{ .Code }}
+</h1>
+<div class="absolute -top-4 -right-4 text-primary animate-bounce delay-100">
+<span class="material-symbols-outlined text-4xl">wifi_off</span>
+</div>
+<div class="absolute bottom-4 -left-4 text-gray-500 dark:text-gray-600 animate-pulse">
+<span class="material-symbols-outlined text-4xl">cloud_off</span>
+</div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/20 blur-3xl -z-10 rounded-lg"></div>
+</div>
+<h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
+    Oops! Error Occurred
+</h2>
+<p class="text-lg text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-10 leading-relaxed">
+    {{ .Message }}
+</p>
+<div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+<a class="w-full sm:w-auto px-8 py-3.5 bg-primary hover:bg-pink-600 text-white text-base font-bold rounded-md transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 flex items-center justify-center gap-2 group" href="/">
+<span class="material-symbols-outlined transition-transform group-hover:-translate-x-1">arrow_back</span>
+<span>Go Back Home</span>
+</a>
+</div>
+</div>
+</main>
+<footer class="w-full border-t border-gray-200 dark:border-white/10 bg-white/50 dark:bg-background-dark/80 backdrop-blur-md mt-auto">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2">
+<span class="text-gray-400 text-xs">© 2025 FlareGate Dashboard.</span>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

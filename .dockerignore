@@ -1,0 +1,81 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# GitHub
+.github/
+
+# Docker
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node (if any)
+node_modules/
+npm-debug.log*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+tunnel-manager
+!bin/tunnel-manager
+
+# SSL certificates
+ssl/
+*.pem
+*.key
+*.crt
+
+# Backup files
+*.bak
+*.backup
+
+# Local configuration
+config.local.*
+nginx.conf
