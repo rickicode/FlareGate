@@ -229,6 +229,27 @@ func main() {
 		c.Next()
 	}
 
+	// Debug endpoint to check session status
+	r.GET("/debug-session", func(c *gin.Context) {
+		session := sessions.Default(c)
+		userID := session.Get("user_id")
+		username := session.Get("username")
+
+		hasUsers := config.HasUsers()
+		user, _ := config.GetUser()
+
+		log.Printf("[Debug] Session - userID: %v, username: %v, hasUsers: %v", userID, username, hasUsers)
+
+		c.JSON(http.StatusOK, gin.H{
+			"session_user_id":   userID,
+			"session_username":  username,
+			"has_users":         hasUsers,
+			"db_user_id":        user.ID,
+			"db_username":       user.Username,
+			"cookies":           c.Request.Cookies(),
+		})
+	})
+
 	// Login Routes
 	r.GET("/login", func(c *gin.Context) {
 		session := sessions.Default(c)
