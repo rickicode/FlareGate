@@ -88,7 +88,7 @@ Note: Cloudflare API token is entered through the web UI, not environment variab
 
 ## Dependencies
 
-- **Go 1.25+**: Core runtime
+- **Go 1.23+**: Core runtime
 - **GCC**: Required for CGO (sqlite3 driver)
 - **cloudflared**: Cloudflare tunnel client (must be installed in PATH)
 - **build-essential**: On Ubuntu/Debian for CGO compilation

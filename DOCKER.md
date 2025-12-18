@@ -140,7 +140,7 @@ The Docker image includes a health check that verifies the application is respon
 ```bash
 # Check health status
 docker ps
-docker inspect tunnelx | grep Health -A 10
+docker inspect flaregate | grep Health -A 10
 ```
 
 ## Logs
@@ -149,13 +149,13 @@ View application logs:
 
 ```bash
 # Docker logs
-docker logs tunnelx
+docker logs flaregate
 
 # Follow logs
-docker logs -f tunnelx
+docker logs -f flaregate
 
 # Docker Compose logs
-docker-compose logs -f tunnelx
+docker-compose logs -f flaregate
 ```
 
 ## Troubleshooting
