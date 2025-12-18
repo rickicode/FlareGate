@@ -31,9 +31,9 @@ RUN apk add --no-cache curl && \
     chmod +x cloudflared && \
     mv cloudflared /usr/local/bin/
 
-# Create appuser
-RUN addgroup -S appgroup && \
-    adduser -S -G appgroup appuser
+# Create hijilabs
+RUN addgroup -S hijilabs && \
+    adduser -S -G hijilabs hijilabs
 
 # Set working directory
 WORKDIR /app
@@ -43,10 +43,10 @@ COPY --from=builder /app/flaregate .
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data && \
-    chown -R appuser:appgroup /app
+    chown -R hijilabs:hijilabs /app
 
 # Switch to non-root user
-USER appuser
+USER hijilabs
 
 # Expose port
 EXPOSE 8020
