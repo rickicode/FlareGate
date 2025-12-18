@@ -1,8 +1,8 @@
 # Build stage
 FROM golang:1.23-bookworm AS builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y gcc libc6-dev sqlite3 pkg-config && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install build dependencies (none needed for pure Go)
+# SSL certs might be needed for download if not in base, but golang image has them.
 
 # Set working directory
 WORKDIR /app
@@ -10,17 +10,15 @@ WORKDIR /app
 # Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
 
-# Download dependencies (this layer only changes when go.mod changes)
+# Download dependencies
 RUN go mod download
 
-# Copy source code (this layer changes when source changes)
+# Copy source code
 COPY . .
 
-# Create .cache directory for go build cache
-RUN mkdir -p /.cache && chmod 777 /.cache
-
 # Build the application with optimizations
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o flaregate .
+# CGO_ENABLED=0 is much faster and produces static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o flaregate .
 
 # Final stage
 FROM debian:bookworm-slim
