@@ -19,7 +19,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 
 	"flaregate/internal/config"
 	"flaregate/internal/cloudflare"
@@ -32,9 +31,8 @@ var f embed.FS
 var LogFile = "data/cloudflared.log"
 var runner *tunnel.Runner
 
-// loadEnvironmentWithDockerSupport loads environment variables from .env file
-// and/or Docker environment exports with proper validation
-func loadEnvironmentWithDockerSupport() {
+// loadEnvironmentVariables loads configuration from environment variables
+func loadEnvironmentVariables() {
 	// Check if running in Docker (common indicators)
 	isDocker := false
 	if _, err := os.Stat("/.dockerenv"); err == nil {
@@ -42,107 +40,81 @@ func loadEnvironmentWithDockerSupport() {
 		log.Println("[Init] Detected Docker environment")
 	}
 
-	// Try to load from custom ENV_FILE first
-	if envFile := os.Getenv("ENV_FILE"); envFile != "" {
-		if err := godotenv.Load(envFile); err != nil {
-			log.Printf("[Init] Warning: Failed to load env file %s: %v", envFile, err)
-		} else {
-			log.Printf("[Init] Loaded environment from %s", envFile)
-		}
-	} else {
-		// Try default .env file
-		if err := godotenv.Load(); err != nil {
-			if !isDocker {
-				// Only log in non-Docker environments, as .env files are uncommon in containers
-				log.Printf("[Init] No .env file found, using process environment")
-			}
-		} else {
-			log.Println("[Init] Loaded .env file")
-		}
-	}
+	// Check data directory permissions (important for Docker)
+	checkDataDirectory(isDocker)
 
-	// Validate critical environment variables and provide helpful error messages
+	// Validate critical environment variables and provide helpful guidance
 	validateRequiredEnvVars(isDocker)
 }
 
-// validateRequiredEnvVars checks if required environment variables are set
-func validateRequiredEnvVars(isDocker bool) {
-	requiredVars := map[string]string{
-		"ADMIN_USERNAME": "admin username for dashboard authentication",
-		"ADMIN_PASSWORD": "admin password for dashboard authentication",
-		"SECRET_KEY":     "session encryption key (auto-generated if not set)",
+// checkDataDirectory verifies data directory is writable
+func checkDataDirectory(isDocker bool) {
+	dataDir := "data"
+
+	// Create data directory if it doesn't exist
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Printf("[Init] Error creating data directory: %v", err)
+		return
 	}
 
-	missingVars := []string{}
-	loadedVars := []string{}
-
-	for varName, _ := range requiredVars {
-		value := os.Getenv(varName)
-		if value == "" {
-			// SECRET_KEY is optional as it can be auto-generated
-			if varName == "SECRET_KEY" {
-				log.Printf("[Init] %s not set, will auto-generate", varName)
-			} else {
-				missingVars = append(missingVars, varName)
-			}
-		} else {
-			if varName == "ADMIN_USERNAME" || varName == "ADMIN_PASSWORD" {
-				loadedVars = append(loadedVars, fmt.Sprintf("%s=***", varName))
-			} else {
-				loadedVars = append(loadedVars, fmt.Sprintf("%s=%s", varName, value))
-			}
-		}
-	}
-
-	// Report loaded environment variables
-	if len(loadedVars) > 0 {
-		log.Printf("[Init] Loaded environment variables: %s", strings.Join(loadedVars, ", "))
-	}
-
-	// Report missing variables with helpful guidance
-	if len(missingVars) > 0 {
-		log.Printf("[Init] Missing required environment variables: %s", strings.Join(missingVars, ", "))
-
+	// Test write permissions
+	testFile := filepath.Join(dataDir, ".permission_test")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		log.Printf("[Init] ERROR: Data directory is not writable: %v", err)
 		if isDocker {
-			log.Println("[Init] Docker Environment Setup:")
-			log.Println("  Set environment variables using -e flag:")
-			log.Println("  docker run -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=password ...")
-			log.Println("  Or use Docker secrets for better security")
-		} else {
-			log.Println("[Init] Local Environment Setup:")
-			log.Println("  1. Copy .env.example to .env: cp .env.example .env")
-			log.Println("  2. Edit .env with your values")
-			log.Println("  3. Or set environment variables directly:")
-			for _, varName := range missingVars {
-				log.Printf("     export %s=your_%s", varName, strings.ToLower(varName))
-			}
+			log.Println("[Init] Docker Setup Issue:")
+			log.Println("  Ensure volume mount has correct permissions:")
+			log.Println("  docker run -v ./data:/app/data:Z ...")
 		}
+		return
+	}
 
-		// For Docker, we might want to exit if critical auth vars are missing
-		if isDocker && (contains(missingVars, "ADMIN_USERNAME") || contains(missingVars, "ADMIN_PASSWORD")) {
-			log.Fatal("[Init] Fatal: ADMIN_USERNAME and ADMIN_PASSWORD must be set in Docker environment")
-		}
+	// Clean up test file
+	os.Remove(testFile)
+
+	if isDocker {
+		log.Println("[Init] Data directory permissions OK")
 	}
 }
 
-// printLoginInfo displays login credentials and access information
-func printLoginInfo(adminUser, adminPass, port string) {
+// validateRequiredEnvVars checks and reports environment variables
+func validateRequiredEnvVars(isDocker bool) {
+	// Check if SECRET_KEY is set (optional)
+	secretKey := os.Getenv("SECRET_KEY")
+	if secretKey != "" {
+		log.Printf("[Init] Using SECRET_KEY from environment")
+	} else {
+		log.Printf("[Init] SECRET_KEY not set, will auto-generate")
+	}
+
+	// Check if PORT is set (optional - defaults to 8020)
+	port := os.Getenv("PORT")
+	if port != "" {
+		log.Printf("[Init] Using PORT=%s from environment", port)
+	} else {
+		log.Printf("[Init] Using default PORT=8020")
+	}
+
+	if isDocker {
+		log.Println("[Init] Running in Docker environment")
+	}
+}
+
+// printLoginInfo displays login information based on user system state
+func printLoginInfo(port string) {
+	hasUsers := config.HasUsers()
+
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("🔐 FlareGate Dashboard Login Information")
 	fmt.Println(strings.Repeat("=", 60))
 
-	if adminUser != "" && adminPass != "" {
-		fmt.Printf("👤 Username: %s\n", adminUser)
-		fmt.Printf("🔑 Password: %s\n", adminPass)
+	if hasUsers {
+		fmt.Println("👤 User account exists in database")
+		fmt.Println("   Please use your existing credentials to login")
 	} else {
-		fmt.Println("⚠️  WARNING: Login credentials not properly configured!")
-		if adminUser == "" {
-			fmt.Println("   - ADMIN_USERNAME is not set")
-		}
-		if adminPass == "" {
-			fmt.Println("   - ADMIN_PASSWORD is not set")
-		}
-		fmt.Println("   Please set these environment variables to secure your dashboard.")
+		fmt.Println("🚀 No user found - Setup Required!")
+		fmt.Println("   Visit dashboard to create your account")
+		fmt.Println("   Registration page will be displayed automatically")
 	}
 
 	fmt.Printf("🌐 Dashboard URL: http://localhost:%s\n", port)
@@ -160,8 +132,8 @@ func contains(slice []string, item string) bool {
 }
 
 func main() {
-	// Load Environment Variables with Docker Support
-	loadEnvironmentWithDockerSupport()
+	// Load Environment Variables
+	loadEnvironmentVariables()
 
 	// Init Internal Packages
 	config.InitDB()
@@ -187,11 +159,8 @@ func main() {
 	}
 	secretKey := getOrCreateSecretKey()
 
-	adminUser := os.Getenv("ADMIN_USERNAME")
-	adminPass := os.Getenv("ADMIN_PASSWORD")
-
 	// Print login information
-	printLoginInfo(adminUser, adminPass, port)
+	printLoginInfo(port)
 
 	// Session Middleware
 	gob.Register(map[string]interface{}{})
@@ -229,8 +198,8 @@ func main() {
 	// Auth Middleware
 	authRequired := func(c *gin.Context) {
 		session := sessions.Default(c)
-		user := session.Get("user")
-		if user == nil {
+		userID := session.Get("user_id")
+		if userID == nil {
 			if c.Request.Header.Get("X-Requested-With") == "XMLHttpRequest" || strings.HasPrefix(c.Request.URL.Path, "/api/") {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			} else {
@@ -245,10 +214,17 @@ func main() {
 	// Login Routes
 	r.GET("/login", func(c *gin.Context) {
 		session := sessions.Default(c)
-		if session.Get("user") != nil {
+		if session.Get("user_id") != nil {
 			c.Redirect(http.StatusFound, "/")
 			return
 		}
+
+		// If no user exists, redirect to registration
+		if !config.HasUsers() {
+			c.Redirect(http.StatusFound, "/register")
+			return
+		}
+
 		c.HTML(http.StatusOK, "login.html", gin.H{})
 	})
 
@@ -256,21 +232,95 @@ func main() {
 		username := c.PostForm("username")
 		password := c.PostForm("password")
 
-		if username == adminUser && password == adminPass {
-			session := sessions.Default(c)
-			session.Set("user", username)
-			session.Save()
-			c.Redirect(http.StatusFound, "/")
-		} else {
+		user, err := config.ValidateUser(username, password)
+		if err != nil {
+			log.Printf("[Login] Failed login attempt for username: %s", username)
 			c.HTML(http.StatusOK, "login.html", gin.H{"error": "Invalid credentials"})
+			return
 		}
+
+		session := sessions.Default(c)
+		session.Set("user_id", user.ID)
+		session.Set("username", user.Username)
+		if err := session.Save(); err != nil {
+			log.Printf("[Login] Error saving session: %v", err)
+			c.HTML(http.StatusOK, "login.html", gin.H{"error": "Session error"})
+			return
+		}
+
+		log.Printf("[Login] Success: username=%s", user.Username)
+		c.Redirect(http.StatusFound, "/")
 	})
 
 	r.GET("/logout", func(c *gin.Context) {
 		session := sessions.Default(c)
-		session.Delete("user")
+		session.Clear()
 		session.Save()
 		c.Redirect(http.StatusFound, "/login")
+	})
+
+	// Registration Routes
+	r.GET("/register", func(c *gin.Context) {
+		// If user already exists, redirect to login
+		if config.HasUsers() {
+			c.Redirect(http.StatusFound, "/login")
+			return
+		}
+		c.HTML(http.StatusOK, "register.html", gin.H{})
+	})
+
+	r.POST("/register", func(c *gin.Context) {
+		// If user already exists, redirect to login
+		if config.HasUsers() {
+			c.Redirect(http.StatusFound, "/login")
+			return
+		}
+
+		username := c.PostForm("username")
+		password := c.PostForm("password")
+		confirmPassword := c.PostForm("confirm_password")
+
+		if username == "" || password == "" {
+			c.HTML(http.StatusOK, "register.html", gin.H{
+				"error": "Username and password are required",
+			})
+			return
+		}
+
+		if password != confirmPassword {
+			c.HTML(http.StatusOK, "register.html", gin.H{
+				"error": "Passwords do not match",
+				"username": username,
+			})
+			return
+		}
+
+		if len(password) < 6 {
+			c.HTML(http.StatusOK, "register.html", gin.H{
+				"error": "Password must be at least 6 characters",
+				"username": username,
+			})
+			return
+		}
+
+		user, err := config.CreateUser(username, password)
+		if err != nil {
+			c.HTML(http.StatusOK, "register.html", gin.H{
+				"error": "Failed to create user: " + err.Error(),
+				"username": username,
+			})
+			return
+		}
+
+		log.Printf("[Register] Success: created user %s", user.Username)
+
+		// Auto-login after registration
+		session := sessions.Default(c)
+		session.Set("user_id", user.ID)
+		session.Set("username", user.Username)
+		session.Save()
+
+		c.Redirect(http.StatusFound, "/")
 	})
 
 	// Protected Routes Group

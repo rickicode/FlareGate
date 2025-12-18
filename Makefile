@@ -7,7 +7,7 @@ build:
 
 # Run the application
 run: build
-	./flaregate
+	 export PORT=8025 && ./flaregate
 # Clean build artifacts
 clean:
 	@echo "Cleaning up..."
