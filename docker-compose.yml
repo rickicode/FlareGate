@@ -11,6 +11,7 @@ services:
       - "8020:8020"
     environment:
       - PORT=8020
+      - SECRET_KEY=flaregate-docker-secret-key-please-change-in-production
     volumes:
       - ./data:/app/data
     networks:

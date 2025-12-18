@@ -165,6 +165,17 @@ func main() {
 	// Session Middleware
 	gob.Register(map[string]interface{}{})
 	store := cookie.NewStore([]byte(secretKey))
+
+	// Configure cookie options for Docker compatibility
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:   false,    // Important for HTTP access (not HTTPS)
+		SameSite: http.SameSiteLaxMode,
+		Domain:   "",       // Allow all domains
+	})
+
 	r.Use(sessions.Sessions("mysession", store))
 
 	// Static & Templates
@@ -199,7 +210,12 @@ func main() {
 	authRequired := func(c *gin.Context) {
 		session := sessions.Default(c)
 		userID := session.Get("user_id")
+
+		// Debug logging for Docker
+		log.Printf("[Auth] Checking auth for path: %s, userID: %v", c.Request.URL.Path, userID)
+
 		if userID == nil {
+			log.Printf("[Auth] No user session found, redirecting to login")
 			if c.Request.Header.Get("X-Requested-With") == "XMLHttpRequest" || strings.HasPrefix(c.Request.URL.Path, "/api/") {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			} else {
@@ -208,6 +224,8 @@ func main() {
 			c.Abort()
 			return
 		}
+
+		log.Printf("[Auth] User authenticated successfully")
 		c.Next()
 	}
 
@@ -232,9 +250,11 @@ func main() {
 		username := c.PostForm("username")
 		password := c.PostForm("password")
 
+		log.Printf("[Login] Login attempt for username: %s", username)
+
 		user, err := config.ValidateUser(username, password)
 		if err != nil {
-			log.Printf("[Login] Failed login attempt for username: %s", username)
+			log.Printf("[Login] Failed login attempt for username: %s, error: %v", username, err)
 			c.HTML(http.StatusOK, "login.html", gin.H{"error": "Invalid credentials"})
 			return
 		}
@@ -242,13 +262,16 @@ func main() {
 		session := sessions.Default(c)
 		session.Set("user_id", user.ID)
 		session.Set("username", user.Username)
+
 		if err := session.Save(); err != nil {
 			log.Printf("[Login] Error saving session: %v", err)
 			c.HTML(http.StatusOK, "login.html", gin.H{"error": "Session error"})
 			return
 		}
 
-		log.Printf("[Login] Success: username=%s", user.Username)
+		log.Printf("[Login] Success: username=%s, user_id=%d", user.Username, user.ID)
+		log.Printf("[Login] Session data: user_id=%v, username=%v", session.Get("user_id"), session.Get("username"))
+
 		c.Redirect(http.StatusFound, "/")
 	})
 
