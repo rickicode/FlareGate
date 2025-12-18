@@ -1,39 +1,46 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.23-bookworm AS builder
 
 # Install build dependencies
-RUN apk add --no-cache gcc musl-dev sqlite-dev
+RUN apt-get update && apt-get install -y gcc libc6-dev sqlite3 pkg-config && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies (this layer only changes when go.mod changes)
 RUN go mod download
 
-# Copy source code
+# Copy source code (this layer changes when source changes)
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o flaregate .
+# Create .cache directory for go build cache
+RUN mkdir -p /.cache && chmod 777 /.cache
+
+# Build the application with optimizations
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o flaregate .
 
 # Final stage
-FROM alpine:latest
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata sqlite
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    sqlite3 \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install cloudflared
-RUN apk add --no-cache curl && \
-    curl -L --output cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && \
-    chmod +x cloudflared && \
-    mv cloudflared /usr/local/bin/
+RUN curl -L --output /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && \
+    chmod +x /usr/local/bin/cloudflared
 
-# Create hijilabs
-RUN addgroup -S hijilabs && \
-    adduser -S -G hijilabs hijilabs
+# Create hijilabs user
+RUN groupadd -r hijilabs && \
+    useradd -r -g hijilabs -d /app -s /bin/bash hijilabs
 
 # Set working directory
 WORKDIR /app
@@ -53,7 +60,7 @@ EXPOSE 8020
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8020/ || exit 1
+    CMD curl -f http://localhost:8020/ || exit 1
 
 # Run the application
 CMD ["./flaregate"]

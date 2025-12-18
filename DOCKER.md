@@ -64,27 +64,6 @@ The application stores its SQLite database in the `/app/data` directory. This di
 
 ## Advanced Options
 
-### Using Nginx Reverse Proxy
-
-To use Nginx as a reverse proxy with SSL termination:
-
-1. Copy the nginx configuration:
-```bash
-cp nginx.conf.example nginx.conf
-# Edit nginx.conf for your domain and SSL certificates
-```
-
-2. Create SSL directory:
-```bash
-mkdir ssl
-# Place your SSL certificates in ssl/cert.pem and ssl/key.pem
-```
-
-3. Start with Nginx profile:
-```bash
-docker-compose --profile with-nginx up -d
-```
-
 ### Building Locally
 
 To build the Docker image locally:
@@ -106,24 +85,18 @@ The Dockerfile supports multi-platform builds for AMD64 and ARM64:
 docker buildx build --platform linux/amd64,linux/arm64 -t flaregate:latest .
 ```
 
-## Docker Compose Profiles
+## Docker Compose
 
-### Default Profile
+The docker-compose.yml runs the FlareGate application with the following configuration:
 - Runs only the FlareGate application
 - Exposes port 8020
+- Persists data in ./data volume
+- Includes health checks
+- Runs as non-root user (hijilabs)
 
-### Nginx Profile
-- Runs FlareGate + Nginx reverse proxy
-- Exposes ports 80 and 443
-- Requires SSL certificates in `./ssl/`
-
-To use a profile:
+To start the application:
 ```bash
-# Default
 docker-compose up -d
-
-# With Nginx
-docker-compose --profile with-nginx up -d
 ```
 
 ## Security Considerations
@@ -131,7 +104,7 @@ docker-compose --profile with-nginx up -d
 1. **Change Default Credentials**: Always change the default admin username and password
 2. **Use Strong SECRET_KEY**: Generate a random, long string for the SECRET_KEY
 3. **Network Security**: Consider using internal networks for production
-4. **SSL/TLS**: Use HTTPS in production with Nginx or a load balancer
+4. **SSL/TLS**: Use HTTPS in production with a reverse proxy or load balancer
 
 ## Health Checks
 
