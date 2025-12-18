@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
+
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -40,10 +40,7 @@ func InitDB() {
 	// Migrate
 	DB.AutoMigrate(&Config{})
 
-	// Load Env
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
+
 }
 
 func GetAppConfig() (*Config, error) {

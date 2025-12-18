@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"embed"
+	"encoding/base64"
 	"encoding/gob"
 	"fmt"
 	"html/template"
@@ -10,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,8 +33,21 @@ var LogFile = "data/cloudflared.log"
 var runner *tunnel.Runner
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		// log.Println("No .env found")
+	// Load Env
+	envFile := os.Getenv("ENV_FILE")
+	if envFile != "" {
+		if err := godotenv.Load(envFile); err != nil {
+			log.Printf("[Init] Warning: Failed to load env file %s: %v", envFile, err)
+		} else {
+			log.Printf("[Init] Loaded environment from %s", envFile)
+		}
+	} else {
+		if err := godotenv.Load(); err != nil {
+			// .env is optional, so we don't error, but we can log for debugging
+			// log.Println("[Init] No .env file found, using process environment")
+		} else {
+			log.Println("[Init] Loaded .env file")
+		}
 	}
 
 	// Init Internal Packages
@@ -56,10 +72,8 @@ func main() {
 	if port == "" {
 		port = "8020"
 	}
-	secretKey := os.Getenv("SECRET_KEY")
-	if secretKey == "" {
-		secretKey = "secret"
-	}
+	secretKey := getOrCreateSecretKey()
+
 	adminUser := os.Getenv("ADMIN_USERNAME")
 	adminPass := os.Getenv("ADMIN_PASSWORD")
 
@@ -1061,5 +1075,45 @@ func getKeys(m map[string]interface{}) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func getOrCreateSecretKey() string {
+	// 1. Check Env
+	if key := os.Getenv("SECRET_KEY"); key != "" {
+		return key
+	}
+
+	// 2. Check File
+	// Ensure data directory exists
+	if err := os.MkdirAll("data", 0755); err != nil {
+		log.Printf("Warning: Failed to create data directory: %v", err)
+	}
+
+	keyPath := filepath.Join("data", "secret.key")
+	if content, err := os.ReadFile(keyPath); err == nil {
+		return strings.TrimSpace(string(content))
+	}
+
+	// 3. Generate
+	key, err := generateRandomString(32)
+	if err != nil {
+		log.Printf("Warning: Failed to generate random key: %v", err)
+		return "default-insecure-secret-key"
+	}
+
+	// 4. Save
+	if err := os.WriteFile(keyPath, []byte(key), 0600); err != nil {
+		log.Printf("Warning: Failed to save secret key: %v", err)
+	}
+
+	return key
+}
+
+func generateRandomString(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
