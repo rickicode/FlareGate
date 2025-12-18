@@ -74,16 +74,29 @@ func validateRequiredEnvVars(isDocker bool) {
 	}
 
 	missingVars := []string{}
+	loadedVars := []string{}
 
 	for varName, _ := range requiredVars {
-		if os.Getenv(varName) == "" {
+		value := os.Getenv(varName)
+		if value == "" {
 			// SECRET_KEY is optional as it can be auto-generated
 			if varName == "SECRET_KEY" {
 				log.Printf("[Init] %s not set, will auto-generate", varName)
-				continue
+			} else {
+				missingVars = append(missingVars, varName)
 			}
-			missingVars = append(missingVars, varName)
+		} else {
+			if varName == "ADMIN_USERNAME" || varName == "ADMIN_PASSWORD" {
+				loadedVars = append(loadedVars, fmt.Sprintf("%s=***", varName))
+			} else {
+				loadedVars = append(loadedVars, fmt.Sprintf("%s=%s", varName, value))
+			}
 		}
+	}
+
+	// Report loaded environment variables
+	if len(loadedVars) > 0 {
+		log.Printf("[Init] Loaded environment variables: %s", strings.Join(loadedVars, ", "))
 	}
 
 	// Report missing variables with helpful guidance
@@ -110,6 +123,30 @@ func validateRequiredEnvVars(isDocker bool) {
 			log.Fatal("[Init] Fatal: ADMIN_USERNAME and ADMIN_PASSWORD must be set in Docker environment")
 		}
 	}
+}
+
+// printLoginInfo displays login credentials and access information
+func printLoginInfo(adminUser, adminPass, port string) {
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println("🔐 FlareGate Dashboard Login Information")
+	fmt.Println(strings.Repeat("=", 60))
+
+	if adminUser != "" && adminPass != "" {
+		fmt.Printf("👤 Username: %s\n", adminUser)
+		fmt.Printf("🔑 Password: %s\n", adminPass)
+	} else {
+		fmt.Println("⚠️  WARNING: Login credentials not properly configured!")
+		if adminUser == "" {
+			fmt.Println("   - ADMIN_USERNAME is not set")
+		}
+		if adminPass == "" {
+			fmt.Println("   - ADMIN_PASSWORD is not set")
+		}
+		fmt.Println("   Please set these environment variables to secure your dashboard.")
+	}
+
+	fmt.Printf("🌐 Dashboard URL: http://localhost:%s\n", port)
+	fmt.Println(strings.Repeat("=", 60))
 }
 
 // contains checks if a string exists in a slice
@@ -152,6 +189,9 @@ func main() {
 
 	adminUser := os.Getenv("ADMIN_USERNAME")
 	adminPass := os.Getenv("ADMIN_PASSWORD")
+
+	// Print login information
+	printLoginInfo(adminUser, adminPass, port)
 
 	// Session Middleware
 	gob.Register(map[string]interface{}{})
@@ -1156,30 +1196,36 @@ func getKeys(m map[string]interface{}) []string {
 func getOrCreateSecretKey() string {
 	// 1. Check Env
 	if key := os.Getenv("SECRET_KEY"); key != "" {
+		log.Printf("[Init] Using SECRET_KEY from environment")
 		return key
 	}
 
 	// 2. Check File
 	// Ensure data directory exists
 	if err := os.MkdirAll("data", 0755); err != nil {
-		log.Printf("Warning: Failed to create data directory: %v", err)
+		log.Printf("[Init] Warning: Failed to create data directory: %v", err)
 	}
 
 	keyPath := filepath.Join("data", "secret.key")
 	if content, err := os.ReadFile(keyPath); err == nil {
-		return strings.TrimSpace(string(content))
+		key := strings.TrimSpace(string(content))
+		log.Printf("[Init] Using existing SECRET_KEY from %s", keyPath)
+		return key
 	}
 
 	// 3. Generate
 	key, err := generateRandomString(32)
 	if err != nil {
-		log.Printf("Warning: Failed to generate random key: %v", err)
+		log.Printf("[Init] Warning: Failed to generate random key: %v", err)
+		log.Printf("[Init] Using default insecure key - please set SECRET_KEY environment variable!")
 		return "default-insecure-secret-key"
 	}
 
 	// 4. Save
 	if err := os.WriteFile(keyPath, []byte(key), 0600); err != nil {
-		log.Printf("Warning: Failed to save secret key: %v", err)
+		log.Printf("[Init] Warning: Failed to save secret key: %v", err)
+	} else {
+		log.Printf("[Init] Generated and saved new SECRET_KEY to %s", keyPath)
 	}
 
 	return key
