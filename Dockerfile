@@ -34,9 +34,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install cloudflared
-RUN curl -L --output /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && \
-    chmod +x /usr/local/bin/cloudflared
+# Install cloudflared from Cloudflare repository
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gpg \
+    wget \
+    && wget -qO - https://pkg.cloudflare.com/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflare-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloudflare-archive-keyring.gpg] https://pkg.cloudflare.com/cloudflared bookworm main" | tee /etc/apt/sources.list.d/cloudflared.list \
+    && apt-get update && apt-get install -y cloudflared \
+    && apt-get remove -y gpg wget \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create hijilabs user
 RUN groupadd -r hijilabs && \
