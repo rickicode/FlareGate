@@ -717,11 +717,16 @@
                 body: JSON.stringify({ hostname, service })
             });
             const data = await res.json();
-            
+
             if (res.status === 409 && data.record) {
                 // Conflict detected
                 const rec = data.record;
-                Swal.fire({
+
+                // Reset button before showing SweetAlert
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+                const result = await Swal.fire({
                     title: 'Hostname Exists!',
                     html: `
                         <div class="text-left bg-gray-100 dark:bg-white/10 p-4 rounded-lg text-sm mt-2">
@@ -737,44 +742,52 @@
                     cancelButtonColor: '#3085d6',
                     confirmButtonText: 'Yes, Delete & Replace',
                     cancelButtonText: 'Cancel'
-                }).then(async (result) => {
-                    if (result.isConfirmed) {
-                        // Delete and Retry
-                        btn.innerHTML = '<span class="material-symbols-outlined animate-spin">delete</span> Deleting...';
-                        
-                        try {
-                             const delRes = await fetch('/api/dns', {
-                                method: 'DELETE',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ record_id: rec.id, hostname: hostname })
-                             });
-                             const delData = await delRes.json();
-                             
-                             if (delData.success) {
-                                 btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Creating...';
-                                 // Retry Creation recursively (or just copy paste fetch)
-                                 // Let's just re-trigger the click event? No, logic reuse better.
-                                 // Resubmit payload
-                                 const retryRes = await fetch('/api/hostname', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({ hostname, service })
-                                });
-                                const retryData = await retryRes.json();
-                                if(retryData.success) {
-                                    closeModal('add-modal');
-                                    Swal.fire('Success', 'Route created successfully!', 'success').then(() => location.reload());
-                                } else {
-                                    Swal.fire('Error', retryData.error || 'Failed to create after delete', 'error');
-                                }
-                             } else {
-                                 Swal.fire('Error', 'Failed to delete existing record: ' + delData.error, 'error');
-                             }
-                        } catch(err) {
-                            Swal.fire('Error', 'Network error during delete', 'error');
-                        }
-                    }
                 });
+
+                if (result.isConfirmed) {
+                    // Delete and Retry
+                    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">delete</span> Deleting...';
+                    btn.disabled = true;
+
+                    try {
+                         const delRes = await fetch('/api/dns', {
+                            method: 'DELETE',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ record_id: rec.id, hostname: hostname })
+                         });
+                         const delData = await delRes.json();
+
+                         if (delData.success) {
+                             btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Creating...';
+                             // Retry Creation
+                             const retryRes = await fetch('/api/hostname', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ hostname, service })
+                            });
+                            const retryData = await retryRes.json();
+                            if(retryData.success) {
+                                closeModal('add-modal');
+                                Swal.fire('Success', 'Route created successfully!', 'success').then(() => location.reload());
+                            } else {
+                                // Reset button on error
+                                btn.innerHTML = originalText;
+                                btn.disabled = false;
+                                Swal.fire('Error', retryData.error || 'Failed to create after delete', 'error');
+                            }
+                         } else {
+                            // Reset button on error
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                            Swal.fire('Error', 'Failed to delete existing record: ' + delData.error, 'error');
+                         }
+                    } catch(err) {
+                        // Reset button on error
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        Swal.fire('Error', 'Network error during delete', 'error');
+                    }
+                }
                 return;
             }
 
@@ -782,36 +795,24 @@
                 // Success: close modal and reload
                 closeModal('add-modal');
                 Swal.fire({
-                    icon: 'success', 
-                    title: 'Added!', 
+                    icon: 'success',
+                    title: 'Added!',
                     text: 'Hostname created successfully',
                     timer: 1500,
                     showConfirmButton: false
                 }).then(() => location.reload());
             } else {
+                // Reset button on error
+                btn.innerHTML = originalText;
+                btn.disabled = false;
                 Swal.fire('Error', data.error || data.errors?.[0]?.message || 'Failed to add', 'error');
             }
         } catch(e) {
             console.error(e);
+            // Reset button on error
+            btn.innerHTML = originalText;
+            btn.disabled = false;
             Swal.fire('Error', 'Network error', 'error');
-        } finally {
-            if (btn.innerText !== 'Adding...' && btn.innerHTML.indexOf('Deleting') === -1 && btn.innerHTML.indexOf('Creating') === -1) {
-                 // Only reset if not in the middle of our complex flow, catch block handles generic errors
-            }
-             // For simplicity, we enable button here if we returned without action (e.g. Cancel on Confirm)
-             // But SweetAlert is async. We should handle button state carefully.
-             // If we showed generic error, we enable.
-             // If we showed Confirm, we wait.
-             // Actually, if we hit the 409 return, we are 'done' with this function execution context, 
-             // but UI is blocked by SweetAlert. 
-             // We should re-enable button if 409 was shown so they can click again if they canceled.
-             if (btn.disabled && !document.querySelector('.swal2-container')) {
-                 btn.innerHTML = originalText;
-                 btn.disabled = false;
-             }
-             // Actually simple restore:
-             btn.innerHTML = originalText;
-             btn.disabled = false;
         }
     });
 
@@ -1273,9 +1274,12 @@
         const port = '{{ .Port }}' || '8020';
         const service = `http://localhost:${port}`;
 
+        const btn = this;
+        const originalText = btn.innerHTML;
+
         try {
-            this.disabled = true;
-            this.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Adding...';
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Adding...';
 
             const res = await fetch('/api/system-hostname', {
                 method: 'POST',
@@ -1300,19 +1304,28 @@
                     window.location.reload();
                 });
             } else {
-                throw new Error(data.error || 'Failed to add system hostname');
+                // Reset button on error
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.error || 'Failed to add system hostname',
+                    background: '#1f2937',
+                    color: '#f3f4f6'
+                });
             }
         } catch (error) {
+            // Reset button on error
+            btn.innerHTML = originalText;
+            btn.disabled = false;
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message,
+                text: error.message || 'Network error occurred',
                 background: '#1f2937',
                 color: '#f3f4f6'
             });
-        } finally {
-            this.disabled = false;
-            this.innerHTML = 'Add Hostname';
         }
     });
 </script>
