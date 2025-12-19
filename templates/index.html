@@ -257,15 +257,15 @@
         <div class="p-6 md:p-8 relative z-10 flex flex-col gap-6">
             <div class="flex flex-col gap-1">
                 <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Hostname</label>
-                <div class="flex gap-2">
+                <div class="flex gap-2" id="hostname-input-container">
                     <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative group">
-                         <input id="add-subdomain" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain" type="text"/>
+                         <input id="add-subdomain" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain or @" type="text"/>
                          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <span class="material-symbols-outlined text-gray-600 text-[16px]">edit</span>
                          </div>
                     </div>
-                    <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1">.</div>
-                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
+                    <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1" id="dot-separator">.</div>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative" id="domain-select-container">
                          <select id="add-domain-select" class="w-full bg-transparent border-none text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
                              <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
                          </select>
@@ -313,7 +313,7 @@
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Hostname</label>
                 <div class="flex gap-2" id="edit-hostname-container">
                     <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative group">
-                         <input id="edit-subdomain" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain" type="text"/>
+                         <input id="edit-subdomain" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain or @" type="text"/>
                          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <span class="material-symbols-outlined text-gray-600 text-[16px]">edit</span>
                          </div>
@@ -581,14 +581,34 @@
     const subInput = document.getElementById('add-subdomain');
     const domSelect = document.getElementById('add-domain-select');
     const preview = document.getElementById('preview-hostname');
+    const dotSeparator = document.getElementById('dot-separator');
+    const domainContainer = document.getElementById('domain-select-container');
 
     function updatePreview() {
         const sub = subInput.value.trim();
         const dom = domSelect.value;
+
         if(dom) {
-            preview.textContent = `Preview: ${sub ? sub + '.' : ''}${dom}`;
+            if (sub === '@') {
+                // Root domain - hide dot and domain selector
+                preview.textContent = `Preview: ${dom}`;
+                dotSeparator.style.display = 'none';
+                domainContainer.style.display = 'none';
+            } else if (sub) {
+                // Subdomain - show all elements
+                preview.textContent = `Preview: ${sub}.${dom}`;
+                dotSeparator.style.display = 'flex';
+                domainContainer.style.display = 'flex';
+            } else {
+                // Empty subdomain - show all elements but no subdomain in preview
+                preview.textContent = `Preview: ${dom}`;
+                dotSeparator.style.display = 'flex';
+                domainContainer.style.display = 'flex';
+            }
         } else {
             preview.textContent = 'Preview: ...';
+            dotSeparator.style.display = 'flex';
+            domainContainer.style.display = 'flex';
         }
     }
     subInput.addEventListener('input', updatePreview);
@@ -605,9 +625,12 @@
             Swal.fire('Error', 'Please select a domain and enter a service address', 'error');
             return;
         }
-        
-        // Construct hostname: subdomain.domain or just domain if subdomain is empty (root)
-        const hostname = subdomain ? `${subdomain}.${domain}` : domain;
+
+        // Construct hostname:
+        // - If subdomain is "@", use domain only (root domain)
+        // - If subdomain is provided and not "@", use subdomain.domain
+        // - If subdomain is empty, use domain only (root domain)
+        const hostname = subdomain === '@' || !subdomain ? domain : `${subdomain}.${domain}`;
 
         const originalText = btn.innerHTML;
         btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Adding...';
@@ -722,8 +745,17 @@
     function openEditModal(hostname, service) {
         // Parse hostname to get subdomain and domain
         const parts = hostname.split('.');
-        const subdomain = parts.length > 2 ? parts.slice(0, -2).join('.') : '';
-        const domain = parts.slice(-2).join('.');
+        let subdomain, domain;
+
+        if (parts.length <= 2) {
+            // Root domain (example.com) or single part
+            subdomain = '@';
+            domain = hostname;
+        } else {
+            // Subdomain (sub.example.com)
+            subdomain = parts.slice(0, -2).join('.');
+            domain = parts.slice(-2).join('.');
+        }
 
         // Set values in edit modal
         document.getElementById('edit-subdomain').value = subdomain;
@@ -766,7 +798,9 @@
          // Build hostname from subdomain and domain
          const subdomain = document.getElementById('edit-subdomain').value.trim();
          const domain = document.getElementById('edit-domain-select').value;
-         const hostname = subdomain ? `${subdomain}.${domain}` : domain;
+
+         // Handle root domain with @ symbol
+         const hostname = subdomain === '@' || !subdomain ? domain : `${subdomain}.${domain}`;
 
          // Update hidden field for compatibility
          document.getElementById('edit-hostname').value = hostname;
