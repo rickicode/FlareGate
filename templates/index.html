@@ -395,11 +395,17 @@
                 </div>
             </div>
         </div>
-        <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
-            <a class="px-5 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors" href="#" onclick="closeModal('change-tunnel-modal'); return false;">Cancel</a>
-            <button id="btn-change-tunnel-save" class="px-6 py-2 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors shadow-lg shadow-primary/20">
-                Switch Tunnel
+        <div class="p-6 border-t border-white/10 relative z-10 flex justify-between items-center bg-black/20">
+            <button id="btn-change-api-token" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px]">key_off</span>
+                <span>Change API Token</span>
             </button>
+            <div class="flex gap-3">
+                <a class="px-5 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors" href="#" onclick="closeModal('change-tunnel-modal'); return false;">Cancel</a>
+                <button id="btn-change-tunnel-save" class="px-6 py-2 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors shadow-lg shadow-primary/20">
+                    Switch Tunnel
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -550,6 +556,74 @@
         }
     });
 
+    // Change API Token functionality
+    document.getElementById('btn-change-api-token').addEventListener('click', async () => {
+        const result = await Swal.fire({
+            title: 'Change API Token?',
+            html: `
+                <div class="text-left">
+                    <p class="mb-4">This will completely reset your FlareGate configuration and delete:</p>
+                    <ul class="list-disc list-inside text-left space-y-2 text-red-400">
+                        <li>Current API token</li>
+                        <li>Tunnel configuration</li>
+                        <li>All hostname routes</li>
+                        <li>System hostname settings</li>
+                    </ul>
+                    <p class="mt-4 text-sm text-gray-400">You will be redirected to the setup page to reconfigure everything with a new API token.</p>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, Reset Everything',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true
+        });
+
+        if (!result.isConfirmed) {
+            return;
+        }
+
+        const btn = document.getElementById('btn-change-api-token');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> <span>Resetting...</span>';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'}
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Configuration Reset',
+                    text: 'All configuration has been deleted. Redirecting to setup...',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+                // Redirect to setup page after a short delay
+                setTimeout(() => {
+                    window.location.href = '/setup';
+                }, 2000);
+            } else {
+                Swal.fire('Error', data.error || 'Failed to reset configuration', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        } catch (e) {
+            console.error("Reset error:", e);
+            Swal.fire('Error', 'Network error: ' + e.message, 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    });
+
     // Load Domains for Add Modal
     async function loadDomains() {
         const select = document.getElementById('add-domain-select');
@@ -590,10 +664,10 @@
 
         if(dom) {
             if (sub === '@') {
-                // Root domain - hide dot and domain selector
+                // Root domain - hide dot only, keep domain selector visible
                 preview.textContent = `Preview: ${dom}`;
                 dotSeparator.style.display = 'none';
-                domainContainer.style.display = 'none';
+                domainContainer.style.display = 'flex';
             } else if (sub) {
                 // Subdomain - show all elements
                 preview.textContent = `Preview: ${sub}.${dom}`;

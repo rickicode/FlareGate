@@ -587,14 +587,18 @@ func main() {
 					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 					return
 				}
+
+				// 1. Basic token verification
 				_, status, err := cloudflare.Request("GET", "/user/tokens/verify", req.Token, nil)
 				if err != nil || status != 200 {
-					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid token"})
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid API token"})
 					return
 				}
+
+				// 2. Get account information
 				accsRes, _, err := cloudflare.Request("GET", "/accounts", req.Token, nil)
 				if err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Failed to access account: " + err.Error()})
 					return
 				}
 				resultList, ok := accsRes["result"].([]interface{})
@@ -605,11 +609,29 @@ func main() {
 				firstAcc := resultList[0].(map[string]interface{})
 				accountID := firstAcc["id"].(string)
 
-				tunnelsRes, _, err := cloudflare.Request("GET", fmt.Sprintf("/accounts/%s/tunnels?is_deleted=false", accountID), req.Token, nil)
-				if err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+				// 3. Verify DNS access - try to list zones
+				_, zonesStatus, err := cloudflare.Request("GET", "/zones?per_page=1", req.Token, nil)
+				if err != nil || zonesStatus != 200 {
+					fmt.Printf("[Verify] DNS access check failed: status=%d, error=%v\n", zonesStatus, err)
+					c.JSON(http.StatusBadRequest, gin.H{
+						"success": false,
+						"error": "Insufficient permissions: API token requires 'Zone:Zone:Read' and 'Zone:DNS:Edit' permissions",
+					})
 					return
 				}
+
+				// 4. Verify Tunnel access - try to list tunnels
+				tunnelsRes, tunnelsStatus, err := cloudflare.Request("GET", fmt.Sprintf("/accounts/%s/tunnels?is_deleted=false", accountID), req.Token, nil)
+				if err != nil || tunnelsStatus != 200 {
+					fmt.Printf("[Verify] Tunnel access check failed: status=%d, error=%v\n", tunnelsStatus, err)
+					c.JSON(http.StatusBadRequest, gin.H{
+						"success": false,
+						"error": "Insufficient permissions: API token requires 'Account:Cloudflare Tunnel:Edit' permission",
+					})
+					return
+				}
+
+				fmt.Printf("[Verify] Token verification successful for account %s\n", accountID)
 
 				c.JSON(http.StatusOK, gin.H{
 					"success":    true,
@@ -755,6 +777,8 @@ func main() {
 					return
 				}
 
+				fmt.Printf("[Debug] Adding hostname: %s -> %s\n", req.Hostname, req.Service)
+
 				// 1. Resolve Zone
 				parts := strings.Split(req.Hostname, ".")
 				var domain string
@@ -819,7 +843,7 @@ func main() {
 					"name":    req.Hostname,
 					"content": fmt.Sprintf("%s.cfargotunnel.com", cfg.TunnelID),
 					"proxied": true,
-					"comment": "Managed by Tunnel Local GUI",
+					"comment": "Managed by FlareGate",
 				}
 				dnsRes, code, err := cloudflare.Request("POST", fmt.Sprintf("/zones/%s/dns_records", zoneID), cfg.APIToken, dnsBody)
 				if err != nil {
@@ -855,16 +879,54 @@ func main() {
 					}
 				}
 
+				// Check if hostname already exists in ingress
+				for _, rule := range ingress {
+					if m, ok := rule.(map[string]interface{}); ok {
+						if hostname, exists := m["hostname"]; exists && hostname == req.Hostname {
+							c.JSON(http.StatusConflict, gin.H{"success": false, "error": "Hostname already exists in tunnel configuration"})
+							return
+						}
+					}
+				}
+
 				newRule := map[string]interface{}{
 					"hostname": req.Hostname,
 					"service":  req.Service,
 					"originRequest": map[string]interface{}{
-						"noTLSVerify": true, 
+						"noTLSVerify": true,
 					},
 				}
-				
-				// Insert at beginning, but before catch-all
-				newIngress := append([]interface{}{newRule}, ingress...)
+
+				fmt.Printf("[Debug] Adding new ingress rule: %+v\n", newRule)
+
+				// Find the catch-all rule (rule without hostname) and insert before it
+				var newIngress []interface{}
+				catchAllFound := false
+
+				for _, rule := range ingress {
+					if m, ok := rule.(map[string]interface{}); ok {
+						if _, hasHostname := m["hostname"]; !hasHostname && !catchAllFound {
+							// This is the catch-all rule, insert new rule before it
+							newIngress = append(newIngress, newRule)
+							newIngress = append(newIngress, rule)
+							catchAllFound = true
+							fmt.Printf("[Debug] Inserted new rule before catch-all\n")
+						} else {
+							// Regular rule or catch-all (if already found)
+							newIngress = append(newIngress, rule)
+						}
+					} else {
+						newIngress = append(newIngress, rule)
+					}
+				}
+
+				// If no catch-all rule found, add the new rule at the beginning
+				if !catchAllFound {
+					newIngress = append([]interface{}{newRule}, newIngress...)
+					fmt.Printf("[Debug] No catch-all rule found, adding new rule at beginning\n")
+				}
+
+				fmt.Printf("[Debug] Total ingress rules count: %d\n", len(newIngress))
 
 				// Save Config
 				updateBody := map[string]interface{}{
@@ -874,12 +936,27 @@ func main() {
 				}
 				
 				saveRes, code, err := cloudflare.Request("PUT", confUrl, cfg.APIToken, updateBody)
-				if err != nil || code != 200 {
+				if err != nil {
+					fmt.Printf("[Error] Tunnel config update failed: %v\n", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update tunnel config: " + err.Error()})
+					return
+				}
+				if code != 200 {
+					fmt.Printf("[Error] Tunnel config update failed with status %d: %+v\n", code, saveRes)
 					c.JSON(code, gin.H{"success": false, "error": "Failed to update tunnel config"})
 					return
 				}
 				if s, ok := saveRes["success"].(bool); !ok || !s {
-					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Cloudflare rejected config update"})
+					fmt.Printf("[Error] Cloudflare rejected config update: %+v\n", saveRes)
+					errMsg := "Cloudflare rejected config update"
+					if errs, ok := saveRes["errors"].([]interface{}); ok && len(errs) > 0 {
+						if eMap, ok := errs[0].(map[string]interface{}); ok {
+							if msg, ok := eMap["message"].(string); ok {
+								errMsg = msg
+							}
+						}
+					}
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": errMsg})
 					return
 				}
 
@@ -1177,10 +1254,30 @@ func main() {
 					},
 				}
 
-				// Insert at beginning of ingress rules
-				newIngress := make([]interface{}, 0, len(ingress)+1)
-				newIngress = append(newIngress, newRule)
-				newIngress = append(newIngress, ingress...)
+				// Find the catch-all rule (rule without hostname) and insert before it
+				var newIngress []interface{}
+				catchAllFound := false
+
+				for _, rule := range ingress {
+					if m, ok := rule.(map[string]interface{}); ok {
+						if _, hasHostname := m["hostname"]; !hasHostname && !catchAllFound {
+							// This is the catch-all rule, insert new rule before it
+							newIngress = append(newIngress, newRule)
+							newIngress = append(newIngress, rule)
+							catchAllFound = true
+						} else {
+							// Regular rule or catch-all (if already found)
+							newIngress = append(newIngress, rule)
+						}
+					} else {
+						newIngress = append(newIngress, rule)
+					}
+				}
+
+				// If no catch-all rule found, add the new rule at the beginning
+				if !catchAllFound {
+					newIngress = append([]interface{}{newRule}, newIngress...)
+				}
 
 				updateBody := map[string]interface{}{"config": map[string]interface{}{"ingress": newIngress}}
 				_, _, err = cloudflare.Request("PUT", confUrl, cfg.APIToken, updateBody)
@@ -1243,6 +1340,33 @@ func main() {
 				}
 
 				c.JSON(http.StatusOK, gin.H{"success": true})
+			})
+
+			// Reset Configuration API (for changing API token)
+			api.DELETE("/config", func(c *gin.Context) {
+				cfg, err := config.GetAppConfig()
+				if err != nil || cfg == nil {
+					c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "No configuration found"})
+					return
+				}
+
+				// Stop the running tunnel
+				go func() {
+					if runner.IsRunning() {
+						if err := runner.Stop(); err != nil {
+							fmt.Printf("[Reset] Failed to stop tunnel: %v\n", err)
+						}
+					}
+				}()
+
+				// Delete the configuration from database
+				if err := config.DeleteAppConfig(); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to delete configuration: " + err.Error()})
+					return
+				}
+
+				fmt.Printf("[Reset] Configuration deleted successfully\n")
+				c.JSON(http.StatusOK, gin.H{"success": true, "message": "Configuration reset successfully"})
 			})
 		}
 	}

@@ -157,3 +157,7 @@ func SaveAppConfig(cfg *Config) error {
 	}
 	return DB.Create(cfg).Error
 }
+
+func DeleteAppConfig() error {
+	return DB.Where("1 = 1").Delete(&Config{}).Error
+}
