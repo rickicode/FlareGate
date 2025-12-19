@@ -41,7 +41,13 @@
             <div id="step-1">
                 <div class="flex flex-col gap-4 text-left">
                     <div>
-                        <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Cloudflare API Token</label>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-primary uppercase tracking-wider ml-1">Cloudflare API Token</label>
+                            <button id="docs-btn" class="text-xs text-primary hover:text-pink-400 flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-sm">help_outline</span>
+                                <span>How to create API token</span>
+                            </button>
+                        </div>
                         <input id="api-token" class="w-full bg-black/40 border border-white/10 rounded-md px-4 py-3 text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Enter your API token" type="password"/>
                     </div>
                     <button id="verify-btn" class="w-full bg-primary hover:bg-pink-600 text-white font-bold py-3 rounded-md transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
@@ -81,6 +87,104 @@
         </div>
     </div>
 </main>
+
+<!-- API Token Documentation Modal -->
+<div id="docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-surface-dark bg-gradient-to-br from-gray-900 to-black border border-primary/20 rounded-md max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+        <div class="sticky top-0 bg-surface-dark bg-gradient-to-br from-gray-900 to-black border-b border-white/10 p-4 flex justify-between items-center z-10">
+            <h3 class="text-lg font-semibold text-white">How to Create Cloudflare API Token</h3>
+            <button id="close-modal" class="text-gray-400 hover:text-white transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <div class="space-y-4">
+                <h4 class="text-white font-medium">Step-by-step instructions:</h4>
+
+                <ol class="space-y-3 text-gray-300">
+                    <li class="flex gap-3">
+                        <span class="text-primary font-semibold">1.</span>
+                        <div>
+                            <p class="text-white">Login to Cloudflare</p>
+                            <p class="text-sm text-gray-400">Go to your Cloudflare dashboard</p>
+                        </div>
+                    </li>
+
+                    <li class="flex gap-3">
+                        <span class="text-primary font-semibold">2.</span>
+                        <div>
+                            <p class="text-white">Navigate to API Tokens page</p>
+                            <p class="text-sm text-gray-400">Go to <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" class="text-primary hover:underline">https://dash.cloudflare.com/profile/api-tokens</a></p>
+                        </div>
+                    </li>
+
+                    <li class="flex gap-3">
+                        <span class="text-primary font-semibold">3.</span>
+                        <div>
+                            <p class="text-white">Create Custom Token</p>
+                            <p class="text-sm text-gray-400">Click "Create Token", then "Create Custom Token"</p>
+                        </div>
+                    </li>
+
+                    <li class="flex gap-3">
+                        <span class="text-primary font-semibold">4.</span>
+                        <div>
+                            <p class="text-white">Set Permissions</p>
+                            <p class="text-sm text-gray-400">Add the following permissions:</p>
+                            <ul class="mt-2 space-y-1 text-sm bg-black/40 p-3 rounded-md border border-white/10">
+                                <li class="flex items-center gap-2">
+                                    <span class="text-green-400">✓</span>
+                                    <span>Account, Account Settings, Read</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-green-400">✓</span>
+                                    <span>Account, Cloudflare Tunnel, Edit</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-green-400">✓</span>
+                                    <span>Zone, Zone, Read</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-green-400">✓</span>
+                                    <span>Zone, DNS, Edit</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <li class="flex gap-3">
+                        <span class="text-primary font-semibold">5.</span>
+                        <div>
+                            <p class="text-white">Complete Token Creation</p>
+                            <p class="text-sm text-gray-400">Click "Continue to summary" and then "Create Token"</p>
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-md">
+                    <div class="flex gap-2 items-start">
+                        <span class="material-symbols-outlined text-yellow-500 text-sm">warning</span>
+                        <div>
+                            <p class="text-yellow-500 font-medium text-sm">Important:</p>
+                            <p class="text-yellow-500/80 text-sm">Copy and save your API token immediately after creation. You won't be able to see it again.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <p class="text-white font-medium mb-3">Visual Example:</p>
+                    <div class="bg-black/40 border border-white/10 rounded-md p-4">
+                        <img src="https://img.lightshot.app/l_hRsuNcQtyfdCiyKrViXA.png"
+                             alt="Cloudflare API Token Creation Example"
+                             class="w-full rounded-md border border-white/20"
+                             loading="lazy"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
     // Setup Wizard JS
     const apiBase = '/api';
@@ -172,6 +276,37 @@
             alert('Error saving config');
         } finally {
             loading.classList.add('hidden');
+        }
+    });
+
+    // Modal functionality
+    const docsBtn = document.getElementById('docs-btn');
+    const docsModal = document.getElementById('docs-modal');
+    const closeModal = document.getElementById('close-modal');
+
+    docsBtn.addEventListener('click', () => {
+        docsModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    });
+
+    closeModal.addEventListener('click', () => {
+        docsModal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    });
+
+    // Close modal when clicking outside
+    docsModal.addEventListener('click', (e) => {
+        if (e.target === docsModal) {
+            docsModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !docsModal.classList.contains('hidden')) {
+            docsModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
         }
     });
 </script>
