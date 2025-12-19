@@ -12,8 +12,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-contrib/sessions"
@@ -602,6 +604,8 @@ func main() {
 				})
 			})
 
+
+
 			// Get Tunnels API
 			api.GET("/tunnels", func(c *gin.Context) {
 				cfg, err := config.GetAppConfig()
@@ -812,6 +816,158 @@ func main() {
 				}
 				c.JSON(http.StatusOK, res)
 			})
+
+			// Docker containers endpoint
+			api.GET("/containers", func(c *gin.Context) {
+				// Use docker command directly to list containers
+				cmd := exec.Command("docker", "ps", "--format", "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Ports}}")
+				output, err := cmd.Output()
+				if err != nil {
+					c.JSON(http.StatusServiceUnavailable, gin.H{
+						"success": false,
+						"error": "Docker is not available or not accessible",
+						"containers": []interface{}{},
+					})
+					return
+				}
+
+				// Parse the output
+				lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+				if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
+					c.JSON(http.StatusOK, gin.H{
+						"success": true,
+						"containers": []interface{}{},
+					})
+					return
+				}
+
+				var containerList []gin.H
+				for _, line := range lines {
+					if strings.TrimSpace(line) == "" {
+						continue
+					}
+
+					// Split by tab
+					parts := strings.Split(line, "\t")
+					if len(parts) < 4 {
+						continue
+					}
+
+					id := parts[0]
+					if len(id) > 12 {
+						id = id[:12] // Short ID
+					}
+
+					name := parts[1]
+					status := parts[2]
+					image := parts[3]
+					ports := ""
+					if len(parts) > 4 {
+						ports = parts[4]
+					}
+
+					// Parse ports to extract exposed ports
+					var exposedPorts []string
+					if ports != "" && ports != "<nil>" {
+						portList := strings.Split(ports, ",")
+						for _, port := range portList {
+							// Extract port number from format like "8080/tcp->0.0.0.0:8080"
+							parts := strings.Split(strings.TrimSpace(port), "->")
+							if len(parts) > 0 {
+								containerPort := strings.TrimSpace(parts[0])
+								if containerPort != "" && !strings.Contains(containerPort, "->") {
+									exposedPorts = append(exposedPorts, containerPort)
+								}
+							}
+						}
+					}
+
+					// Get hostname using docker inspect
+					hostname := name
+					inspectCmd := exec.Command("docker", "inspect", "--format", "{{.Config.Hostname}}", name)
+					if hostnameOutput, err := inspectCmd.Output(); err == nil {
+						hn := strings.TrimSpace(string(hostnameOutput))
+						if hn != "" && hn != "<no value>" {
+							hostname = hn
+						}
+					}
+
+					containerList = append(containerList, gin.H{
+						"id":       id,
+						"name":     name,
+						"status":   status,
+						"image":    image,
+						"ports":    exposedPorts,
+						"hostname": hostname,
+					})
+				}
+
+				// Concurrently check health for all containers
+				type HealthResult struct {
+					Index  int
+					Status string
+					Detail string
+				}
+				healthResults := make(chan HealthResult, len(containerList))
+				var wg sync.WaitGroup
+
+				for i, container := range containerList {
+					wg.Add(1)
+					go func(idx int, c gin.H) {
+						defer wg.Done()
+						hostname, ok := c["hostname"].(string)
+						if !ok || hostname == "" {
+							healthResults <- HealthResult{Index: idx, Status: "unknown", Detail: "No hostname"}
+							return
+						}
+
+						// Check Reachability (Ping)
+						// Using short timeout (1s) to not delay the list too much
+						cmd := exec.Command("ping", "-c", "1", "-W", "1", hostname)
+						if err := cmd.Run(); err == nil {
+							healthResults <- HealthResult{Index: idx, Status: "reachable", Detail: "Ping Success"}
+							return
+						}
+
+						// Fallback: Check DNS
+						if _, err := net.LookupHost(hostname); err == nil {
+							healthResults <- HealthResult{Index: idx, Status: "dns_resolved", Detail: "DNS OK, Ping Failed"}
+							return
+						}
+
+						healthResults <- HealthResult{Index: idx, Status: "unreachable", Detail: "Resolution Failed"}
+					}(i, container)
+				}
+
+				// Close channel when all done
+				go func() {
+					wg.Wait()
+					close(healthResults)
+				}()
+
+				// Collect results (map index -> health)
+				healthMap := make(map[int]HealthResult)
+				for res := range healthResults {
+					healthMap[res.Index] = res
+				}
+
+				// Apply results to container list
+				for i := range containerList {
+					if res, ok := healthMap[i]; ok {
+						containerList[i]["health_status"] = res.Status
+						containerList[i]["health_detail"] = res.Detail
+					} else {
+						containerList[i]["health_status"] = "unknown"
+					}
+				}
+
+				c.JSON(http.StatusOK, gin.H{
+					"success":    true,
+					"containers": containerList,
+				})
+			})
+
+
 
 			api.POST("/hostname", func(c *gin.Context) {
 				var req struct {

@@ -301,11 +301,14 @@
                             <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
                         </div>
                     </div>
-                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300">
-                        <input id="add-service-address" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono" placeholder="localhost:8080" type="text"/>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
+                        <input id="add-service-address" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono" placeholder="hostname:port (required)" type="text"/>
                     </div>
+                    <button type="button" onclick="loadContainers(); openModal('container-modal'); return false;" class="p-3 rounded-md bg-black/40 border border-white/10 hover:bg-white/20 transition-all duration-300 group" title="Get from Docker containers">
+                        <span class="material-symbols-outlined text-gray-400 group-hover:text-gray-200 text-[18px]">inventory_2</span>
+                    </button>
                 </div>
-                <p class="text-xs text-gray-500 mt-1 ml-1">Enter the address of your local service (e.g., localhost:8080)</p>
+                <p class="text-xs text-gray-500 mt-1 ml-1">Enter service address with port (e.g., localhost:8080, dockeraz-flaregate:8020) or select from Docker containers</p>
             </div>
         </div>
         <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
@@ -314,6 +317,43 @@
                 <span class="material-symbols-outlined text-[20px]">add_circle</span>
                 <span>Add Route</span>
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Container Selection Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="container-modal">
+    <div class="bg-white dark:bg-surface-dark border border-gray-200 dark:border-white/10 rounded-md w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]">
+        <div class="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-500">inventory_2</span>
+                Select Docker Container
+            </h3>
+            <a class="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" href="#" onclick="closeModal('container-modal'); return false;">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto">
+            <div id="container-list" class="space-y-3">
+                <div class="text-center py-8">
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 mb-4">
+                        <span class="material-symbols-outlined text-2xl">inventory_2</span>
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-400">Loading containers...</p>
+                </div>
+            </div>
+            <div id="container-error" class="hidden">
+                <div class="text-center py-8">
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-600 mb-4">
+                        <span class="material-symbols-outlined text-2xl">error</span>
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-400">Docker is not available or no containers found</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">Make sure Docker is running and FlareGate has access to Docker socket</p>
+                </div>
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-100 dark:border-white/5 flex justify-end gap-3">
+            <a class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/5 transition-colors" href="#" onclick="closeModal('container-modal'); return false;">Cancel</a>
         </div>
     </div>
 </div>
@@ -364,7 +404,7 @@
                         </div>
                     </div>
                     <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300">
-                        <input id="edit-service-address" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono" placeholder="localhost:8080" type="text"/>
+                        <input id="edit-service-address" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono" placeholder="hostname:port (required)" type="text"/>
                     </div>
                 </div>
                 <input id="edit-service" type="hidden"/>
@@ -523,6 +563,28 @@
     // DASHBOARD JS
     let hostnameToDelete = '';
 
+    // Safe Fetch Helper
+    async function safeFetch(url, options) {
+        try {
+            const res = await fetch(url, options);
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") === -1) {
+                 console.warn(`API ${url} returned non-JSON. API likely missing.`);
+                 return { success: false, status: 404, error: "API not implemented" };
+            }
+            if (!res.ok) {
+                 try { const err = await res.json(); return { success: false, status: res.status, ...err }; }
+                 catch(e) { return { success: false, status: res.status, error: res.statusText }; }
+            }
+            const data = await res.json();
+            data.status = res.status;
+            return data;
+        } catch(e) {
+            console.error("Fetch error:", e);
+            return { success: false, status: 500, error: e.message };
+        }
+    }
+
     // Modal Logic
     function openModal(modalId) {
         document.getElementById(modalId).classList.remove('hidden');
@@ -645,12 +707,10 @@
         btn.disabled = true;
 
         try {
-            const res = await fetch('/api/config', {
+            const data = await safeFetch('/api/config', {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'}
             });
-
-            const data = await res.json();
 
             if (data.success) {
                 await Swal.fire({
@@ -682,19 +742,18 @@
     async function loadDomains() {
         const select = document.getElementById('add-domain-select');
         try {
-            const res = await fetch('/api/zones');
-            const data = await res.json();
+            const data = await safeFetch('/api/zones');
             if (data.success) {
                 select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Select Domain...</option>';
                 data.result.forEach(zone => {
                     const opt = document.createElement('option');
                     opt.value = zone.name;
                     opt.textContent = zone.name;
-                    opt.className = "bg-gray-900 text-white"; // Style for dark mode
+                    opt.className = "bg-gray-900 text-white"; 
                     select.appendChild(opt);
                 });
             } else {
-                 select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+                 select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Failed to load domains (API Check Failed)</option>';
             }
         } catch (e) {
             console.error(e);
@@ -729,6 +788,181 @@
             console.error(e);
             select.innerHTML = '<option value="" disabled selected>Error loading domains</option>';
         }
+    }
+
+    // Load Docker Containers
+    async function loadContainers() {
+        const containerList = document.getElementById('container-list');
+        const containerError = document.getElementById('container-error');
+
+        // Show loading state
+        containerList.innerHTML = `
+            <div class="text-center py-8">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 mb-4">
+                    <span class="material-symbols-outlined animate-spin">refresh</span>
+                </div>
+                <p class="text-gray-600 dark:text-gray-400">Loading containers...</p>
+            </div>
+        `;
+        containerError.classList.add('hidden');
+
+        try {
+            const data = await safeFetch('/api/containers');
+
+            if (data.success && data.containers && data.containers.length > 0) {
+                containerList.innerHTML = '';
+                data.containers.forEach(container => {
+                    const containerCard = document.createElement('div');
+                    containerCard.className = 'p-4 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer';
+                    containerCard.onclick = () => selectContainer(container);
+
+                    const portsHtml = container.ports.length > 0
+                        ? `<div class="flex flex-wrap gap-1 mt-2">
+                             ${container.ports.map(port => `<span class="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">${port}</span>`).join('')}
+                           </div>`
+                        : '<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">No exposed ports</div>';
+
+                    let healthHtml = '';
+                    let healthClass = '';
+                    const healthStatus = container.health_status || 'unknown';
+                    const healthDetail = container.health_detail || '';
+
+                    if (healthStatus === 'reachable') {
+                         healthHtml = '<span class="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">check_circle</span>Reachable</span>';
+                         healthClass = 'text-green-600 dark:text-green-400';
+                    } else if (healthStatus === 'dns_resolved') {
+                         healthHtml = '<span class="text-xs bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">warning</span>DNS OK</span>';
+                         healthClass = 'text-yellow-600 dark:text-yellow-400';
+                    } else {
+                         healthHtml = '<span class="text-xs bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">error</span>Unreachable</span>';
+                         healthClass = 'text-red-600 dark:text-red-400';
+                    }
+
+                    containerCard.innerHTML = `
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-medium text-gray-900 dark:text-white">${container.name}</h4>
+                                    <span class="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-1 rounded">${container.status}</span>
+                                    <div class="health-check-indicator ${healthClass}" title="${healthDetail}">
+                                        ${healthHtml}
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <span class="font-mono text-xs">${container.id.substring(0, 12)}</span>
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    ${container.image}
+                                </div>
+                                ${portsHtml}
+                            </div>
+                            <div class="ml-4 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-gray-400">arrow_forward_ios</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    containerList.appendChild(containerCard);
+                });
+            } else {
+                containerList.innerHTML = `<div class="text-center py-8 text-gray-500">No containers found or API unavailable.</div>`;
+            }
+        } catch (error) {
+            console.error('Failed to load containers:', error);
+            containerList.innerHTML = `<div class="text-center py-8 text-gray-500">Error loading containers.</div>`;
+        }
+    }
+
+    // Perform Health Check
+    async function performHealthCheck(hostname) {
+        const healthId = 'health-' + hostname.replace(/[^a-zA-Z0-9]/g, '-');
+        const healthElement = document.getElementById(healthId);
+
+        if (!healthElement) return;
+
+        try {
+            const res = await fetch('/api/health-check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ hostname: hostname })
+            });
+            const data = await res.json();
+
+            let healthHtml = '';
+            let healthClass = '';
+
+            switch(data.status) {
+                case 'container_found':
+                    healthHtml = '<span class="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">check_circle</span>Container</span>';
+                    healthClass = 'text-green-600 dark:text-green-400';
+                    break;
+                case 'reachable':
+                    healthHtml = '<span class="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">check_circle</span>Reachable</span>';
+                    healthClass = 'text-green-600 dark:text-green-400';
+                    break;
+                case 'dns_resolved':
+                    healthHtml = '<span class="text-xs bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">warning</span>DNS OK</span>';
+                    healthClass = 'text-yellow-600 dark:text-yellow-400';
+                    break;
+                case 'unreachable':
+                    healthHtml = '<span class="text-xs bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">error</span>Unreachable</span>';
+                    healthClass = 'text-red-600 dark:text-red-400';
+                    break;
+                default:
+                    healthHtml = '<span class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">help</span>Unknown</span>';
+                    healthClass = 'text-gray-500 dark:text-gray-400';
+            }
+
+            // Add tooltip with additional info
+            let tooltipInfo = '';
+            if (data.container && data.container.ip && data.container.ip !== '<none>') {
+                tooltipInfo = 'Container IP: ' + data.container.ip;
+            } else if (data.ping && data.ping.success) {
+                tooltipInfo = 'Ping successful';
+            } else if (data.dns && data.dns.success) {
+                tooltipInfo = 'DNS resolution successful';
+            } else {
+                tooltipInfo = 'Cannot reach from FlareGate';
+            }
+
+            healthElement.innerHTML = healthHtml;
+            healthElement.className = 'health-check-indicator ' + healthClass;
+            healthElement.title = tooltipInfo;
+
+        } catch (error) {
+            console.error('Health check failed for ' + hostname + ':', error);
+            const healthElement = document.getElementById(healthId);
+            if (healthElement) {
+                healthElement.innerHTML = '<span class="text-xs bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-1 rounded flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">error</span>Error</span>';
+                healthElement.title = 'Health check failed';
+            }
+        }
+    }
+
+    // Select Container
+    function selectContainer(container) {
+        const serviceAddressInput = document.getElementById('add-service-address');
+        const protocolSelect = document.getElementById('add-protocol');
+
+        // Use container name as service address
+        serviceAddressInput.value = container.name;
+
+        // Auto-select http:// protocol if it's not already selected
+        if (!protocolSelect.value || protocolSelect.value === 'ssh://' || protocolSelect.value === 'tcp://') {
+            protocolSelect.value = 'http://';
+        }
+
+        // Close container modal and return to add modal
+        closeModal('container-modal');
+
+        // Show success notification - REMOVED as per user request
+        // Swal.fire({
+        //     icon: 'success',
+        //     title: 'Container Selected',
+        //     text: `Selected container: ${container.name}`,
+        //     timer: 2000,
+        //     showConfirmButton: false
+        // });
     }
 
     // Call loadDomains when modal target changes (naive but works) or just on load
@@ -787,6 +1021,46 @@
             return;
         }
 
+        // Validate service address format (hostname:port)
+        if(serviceAddress && !serviceAddress.includes(':')) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid Service Address',
+                text: 'Service address must include a port number (e.g., localhost:8080 or dockeraz-flaregate:8080)',
+                confirmButtonColor: '#ec4899'
+            });
+            return;
+        }
+
+        // Validate port number is numeric and within valid range
+        if(serviceAddress && serviceAddress.includes(':')) {
+            const parts = serviceAddress.split(':');
+            const port = parts[parts.length - 1];
+
+            // Check if port is a valid number
+            if(isNaN(port) || port === '') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid Port Number',
+                    text: 'Port must be a valid number (e.g., 8080, 3000, 443)',
+                    confirmButtonColor: '#ec4899'
+                });
+                return;
+            }
+
+            // Check if port is within valid range (1-65535)
+            const portNum = parseInt(port);
+            if(portNum < 1 || portNum > 65535) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid Port Range',
+                    text: 'Port must be between 1 and 65535',
+                    confirmButtonColor: '#ec4899'
+                });
+                return;
+            }
+        }
+
         // Construct hostname:
         // - If subdomain is "@", use domain only (root domain)
         // - If subdomain is provided and not "@", use subdomain.domain
@@ -798,14 +1072,13 @@
         btn.disabled = true;
 
         try {
-            const res = await fetch('/api/hostname', {
+            const data = await safeFetch('/api/hostname', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ hostname, service })
             });
-            const data = await res.json();
 
-            if (res.status === 409 && data.record) {
+            if (data.status === 409 && data.record) {
                 // Conflict detected
                 const rec = data.record;
 
@@ -837,22 +1110,20 @@
                     btn.disabled = true;
 
                     try {
-                         const delRes = await fetch('/api/dns', {
+                         const delData = await safeFetch('/api/dns', {
                             method: 'DELETE',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({ record_id: rec.id, hostname: hostname })
                          });
-                         const delData = await delRes.json();
 
                          if (delData.success) {
                              btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Creating...';
                              // Retry Creation
-                             const retryRes = await fetch('/api/hostname', {
+                             const retryData = await safeFetch('/api/hostname', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({ hostname, service })
                             });
-                            const retryData = await retryRes.json();
                             if(retryData.success) {
                                 closeModal('add-modal');
                                 Swal.fire('Success', 'Route created successfully!', 'success').then(() => location.reload());
@@ -974,6 +1245,46 @@
          // Combine protocol and service address
          let service = protocol + serviceAddress;
 
+         // Validate service address format (hostname:port) for non-system hostname
+         if (!window.editingSystemHostname && serviceAddress) {
+             if (!serviceAddress.includes(':')) {
+                 Swal.fire({
+                     icon: 'error',
+                     title: 'Invalid Service Address',
+                     text: 'Service address must include a port number (e.g., localhost:8080 or dockeraz-flaregate:8080)',
+                     confirmButtonColor: '#ec4899'
+                 });
+                 return;
+             }
+
+             // Validate port number is numeric and within valid range
+             const parts = serviceAddress.split(':');
+             const port = parts[parts.length - 1];
+
+             // Check if port is a valid number
+             if (isNaN(port) || port === '') {
+                 Swal.fire({
+                     icon: 'error',
+                     title: 'Invalid Port Number',
+                     text: 'Port must be a valid number (e.g., 8080, 3000, 443)',
+                     confirmButtonColor: '#ec4899'
+                 });
+                 return;
+             }
+
+             // Check if port is within valid range (1-65535)
+             const portNum = parseInt(port);
+             if (portNum < 1 || portNum > 65535) {
+                 Swal.fire({
+                     icon: 'error',
+                     title: 'Invalid Port Range',
+                     text: 'Port must be between 1 and 65535',
+                     confirmButtonColor: '#ec4899'
+                 });
+                 return;
+             }
+         }
+
          // Update hidden field for compatibility
          document.getElementById('edit-service').value = service;
 
@@ -1001,7 +1312,7 @@
                     // Update system hostname in config if changed
                     const cfg = await (await fetch('/api/system-hostname')).json();
                     if (cfg.success && cfg.systemHostname !== hostname) {
-                        await fetch('/api/system-hostname-update', {
+                        await safeFetch('/api/system-hostname-update', {
                             method: 'PUT',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({ hostname })
@@ -1010,12 +1321,11 @@
                 }
             } else {
                 // Regular hostname edit
-                const res = await fetch('/api/hostname', {
+                data = await safeFetch('/api/hostname', {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ hostname, service })
                 });
-                data = await res.json();
             }
 
             if(data.success) {
@@ -1059,12 +1369,11 @@
          btn.disabled = true;
 
          try {
-            const res = await fetch('/api/hostname', {
+            const data = await safeFetch('/api/hostname', {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ hostname: hostnameToDelete, service: 'dummy' })
             });
-            const data = await res.json();
             if(data.success) {
                 closeModal('delete-modal');
                 Swal.fire({
@@ -1293,8 +1602,7 @@
     async function loadEditDomains() {
         const select = document.getElementById('edit-domain-select');
         try {
-            const res = await fetch('/api/zones');
-            const data = await res.json();
+            const data = await safeFetch('/api/zones');
             if (data.success) {
                 select.innerHTML = '';
                 data.result.forEach(zone => {
@@ -1316,8 +1624,7 @@
     async function loadSystemZones() {
         const select = document.getElementById('system-domain-select');
         try {
-            const res = await fetch('/api/zones');
-            const data = await res.json();
+            const data = await safeFetch('/api/zones');
             if (data.success) {
                 select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Select Domain...</option>';
                 data.result.forEach(zone => {
@@ -1365,15 +1672,13 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Adding...';
 
-            const res = await fetch('/api/system-hostname', {
+            const data = await safeFetch('/api/system-hostname', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ hostname, service })
             });
-
-            const data = await res.json();
 
             if (data.success) {
                 closeModal('system-hostname-modal');
