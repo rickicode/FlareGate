@@ -265,25 +265,47 @@
                          </div>
                     </div>
                     <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1" id="dot-separator">.</div>
-                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative" id="domain-select-container">
-                         <select id="add-domain-select" class="w-full bg-transparent border-none text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
-                             <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
-                         </select>
-                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                             <span class="material-symbols-outlined text-[20px]">expand_more</span>
-                         </div>
+                    <div class="flex-1 flex items-center gap-2">
+                        <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative" id="domain-select-container">
+                             <select id="add-domain-select" class="w-full bg-transparent border-none text-gray-300 focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
+                                 <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
+                             </select>
+                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
+                                 <span class="material-symbols-outlined text-[20px]">expand_more</span>
+                             </div>
+                        </div>
+                        <button type="button" onclick="refreshDomains()" class="p-3 rounded-md bg-black/40 border border-white/10 hover:bg-white/20 transition-all duration-300 group" title="Refresh domains">
+                            <span class="material-symbols-outlined text-gray-400 group-hover:text-gray-200 text-[18px]">refresh</span>
+                        </button>
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 mt-1 ml-1" id="preview-hostname">Preview: ...</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                    Don't see your domain? <a href="https://www.cloudflare.com/products/domain-registration/" target="_blank" class="text-blue-400 hover:text-blue-300 underline">Register a new domain</a> first, then refresh.
+                </p>
             </div>
             <div class="flex flex-col gap-1">
-                <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Local Service Address</label>
-                <div class="flex w-full items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300">
-                    <div class="pl-4 pr-2 flex items-center justify-center pointer-events-none text-gray-500">
-                        <span class="material-symbols-outlined text-[20px]">dns</span>
+                <label class="block text-xs font-bold text-primary mb-1 uppercase tracking-wider ml-1">Origin Service</label>
+                <div class="flex gap-2">
+                    <div class="w-32 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
+                        <select id="add-protocol" class="w-full bg-transparent border-none text-gray-300 focus:ring-0 text-sm py-3 pl-3 pr-8 font-mono appearance-none cursor-pointer">
+                            <option value="http://" class="bg-gray-900 text-white">http://</option>
+                            <option value="https://" class="bg-gray-900 text-white">https://</option>
+                            <option value="smb://" class="bg-gray-900 text-white">smb://</option>
+                            <option value="ssh://" class="bg-gray-900 text-white">ssh://</option>
+                            <option value="tcp://" class="bg-gray-900 text-white">tcp://</option>
+                            <option value="udp://" class="bg-gray-900 text-white">udp://</option>
+                            <option value="rdp://" class="bg-gray-900 text-white">rdp://</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-gray-500">
+                            <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                        </div>
                     </div>
-                    <input id="add-service" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 font-mono" placeholder="http://localhost:8080" type="text"/>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300">
+                        <input id="add-service-address" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono" placeholder="localhost:8080" type="text"/>
+                    </div>
                 </div>
+                <p class="text-xs text-gray-500 mt-1 ml-1">Enter the address of your local service (e.g., localhost:8080)</p>
             </div>
         </div>
         <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
@@ -311,28 +333,41 @@
         <div class="p-6 flex flex-col gap-4">
             <div>
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Hostname</label>
-                <div class="flex gap-2" id="edit-hostname-container">
-                    <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative group">
-                         <input id="edit-subdomain" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono text-right" placeholder="subdomain or @" type="text"/>
-                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <span class="material-symbols-outlined text-gray-600 text-[16px]">edit</span>
-                         </div>
-                    </div>
-                    <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1">.</div>
-                    <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
-                         <select id="edit-domain-select" class="w-full bg-transparent border-none text-gray-900 dark:text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
-                             <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
-                         </select>
-                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
-                             <span class="material-symbols-outlined text-[20px]">expand_more</span>
-                         </div>
-                    </div>
+                <div class="items-center shadow-lg rounded-md bg-gray-100 dark:bg-black/10 border border-gray-300 dark:border-white/20 transition-all duration-300 relative">
+                     <input id="edit-hostname-display" class="w-full bg-transparent border-none text-gray-500 dark:text-gray-400 text-sm py-3 pl-4 pr-10 font-mono cursor-not-allowed" readonly type="text" placeholder="Loading..."/>
+                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400">
+                         <span class="material-symbols-outlined text-[18px]">lock</span>
+                     </div>
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity duration-200">
+                         <span class="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">Hostname cannot be changed</span>
+                     </div>
                 </div>
                 <input id="edit-hostname" type="hidden" />
+                <input id="edit-subdomain" type="hidden" />
+                <input id="edit-domain-select" type="hidden" />
             </div>
             <div>
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Origin Service</label>
-                <input id="edit-service" class="w-full rounded-md bg-white dark:bg-background-dark border-gray-200 dark:border-white/10 text-gray-900 dark:text-white focus:border-primary focus:ring-primary text-sm font-mono" type="text"/>
+                <div class="flex gap-2">
+                    <div class="w-32 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300 relative">
+                        <select id="edit-protocol" class="w-full bg-transparent border-none text-gray-700 dark:text-gray-300 focus:ring-0 text-sm py-3 pl-3 pr-8 font-mono appearance-none cursor-pointer">
+                            <option value="http://" class="bg-gray-900 text-white">http://</option>
+                            <option value="https://" class="bg-gray-900 text-white">https://</option>
+                            <option value="smb://" class="bg-gray-900 text-white">smb://</option>
+                            <option value="ssh://" class="bg-gray-900 text-white">ssh://</option>
+                            <option value="tcp://" class="bg-gray-900 text-white">tcp://</option>
+                            <option value="udp://" class="bg-gray-900 text-white">udp://</option>
+                            <option value="rdp://" class="bg-gray-900 text-white">rdp://</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-gray-500">
+                            <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 items-center shadow-lg rounded-md bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all duration-300">
+                        <input id="edit-service-address" class="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-sm py-3 px-4 font-mono" placeholder="localhost:8080" type="text"/>
+                    </div>
+                </div>
+                <input id="edit-service" type="hidden"/>
             </div>
         </div>
         <div class="p-4 bg-gray-50 dark:bg-black/20 flex justify-end gap-3">
@@ -432,6 +467,7 @@
             <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                 <p class="text-sm text-blue-300">
                     <strong>Note:</strong> This will add a hostname that points to this web application running on port {{ .Port }}.
+                    The service address will be automatically set to <code class="bg-blue-600/20 px-1 rounded text-blue-300">http://localhost:{{ .Port }}</code>
                 </p>
             </div>
             <div class="flex flex-col gap-1">
@@ -445,7 +481,7 @@
                     </div>
                     <div class="flex-none flex items-center justify-center text-gray-400 font-bold text-xl pb-1">.</div>
                     <div class="flex-1 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/10 transition-all duration-300 relative">
-                         <select id="system-domain-select" class="w-full bg-transparent border-none text-white focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
+                         <select id="system-domain-select" class="w-full bg-transparent border-none text-gray-300 focus:ring-0 text-sm py-3 pl-4 pr-10 font-mono appearance-none cursor-pointer">
                              <option value="" disabled selected class="bg-gray-900 text-gray-400">Loading domains...</option>
                          </select>
                          <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">
@@ -454,6 +490,24 @@
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 mt-1 ml-1">Subdomain for the system hostname</p>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="block text-xs font-bold text-blue-400 mb-1 uppercase tracking-wider ml-1">Service Protocol</label>
+                <div class="w-32 items-center shadow-lg rounded-md bg-black/40 border border-white/10 focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/10 transition-all duration-300 relative">
+                    <select id="system-protocol" class="w-full bg-transparent border-none text-gray-300 focus:ring-0 text-sm py-3 pl-3 pr-8 font-mono appearance-none cursor-pointer">
+                        <option value="http://" class="bg-gray-900 text-white">http://</option>
+                        <option value="https://" class="bg-gray-900 text-white">https://</option>
+                        <option value="smb://" class="bg-gray-900 text-white">smb://</option>
+                        <option value="ssh://" class="bg-gray-900 text-white">ssh://</option>
+                        <option value="tcp://" class="bg-gray-900 text-white">tcp://</option>
+                        <option value="udp://" class="bg-gray-900 text-white">udp://</option>
+                        <option value="rdp://" class="bg-gray-900 text-white">rdp://</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-gray-500">
+                        <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1 ml-1">Protocol for connecting to this FlareGate instance</p>
             </div>
         </div>
         <div class="p-6 border-t border-white/10 relative z-10 flex justify-end gap-3 bg-black/20">
@@ -648,6 +702,35 @@
         }
     }
 
+    // Refresh domains function
+    async function refreshDomains() {
+        const select = document.getElementById('add-domain-select');
+        const originalText = select.innerHTML;
+        select.innerHTML = '<option value="" disabled class="bg-gray-900 text-gray-400">Refreshing...</option>';
+
+        try {
+            const res = await fetch('/api/zones');
+            const data = await res.json();
+            if (data.success) {
+                select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Select Domain...</option>';
+                data.result.forEach(zone => {
+                    const opt = document.createElement('option');
+                    opt.value = zone.name;
+                    opt.textContent = zone.name;
+                    opt.className = "bg-gray-900 text-white";
+                    select.appendChild(opt);
+                });
+                // Also refresh edit domains
+                await loadEditDomains();
+            } else {
+                 select.innerHTML = '<option value="" disabled selected class="bg-gray-900 text-gray-400">Failed to load domains</option>';
+            }
+        } catch (e) {
+            console.error(e);
+            select.innerHTML = '<option value="" disabled selected>Error loading domains</option>';
+        }
+    }
+
     // Call loadDomains when modal target changes (naive but works) or just on load
     loadDomains();
 
@@ -693,7 +776,11 @@
         const btn = document.getElementById('btn-add-submit');
         const subdomain = subInput.value.trim();
         const domain = domSelect.value;
-        const service = document.getElementById('add-service').value;
+        const protocol = document.getElementById('add-protocol').value;
+        const serviceAddress = document.getElementById('add-service-address').value;
+
+        // Combine protocol and service address
+        const service = protocol + serviceAddress;
 
         if(!domain || !service) {
             Swal.fire('Error', 'Please select a domain and enter a service address', 'error');
@@ -832,19 +919,34 @@
             domain = parts.slice(-2).join('.');
         }
 
-        // Set values in edit modal
-        document.getElementById('edit-subdomain').value = subdomain;
-        document.getElementById('edit-hostname').value = hostname; // Keep hidden field for compatibility
-        document.getElementById('edit-service').value = service;
+        // Parse service to extract protocol and address
+        let protocol = 'http://';
+        let serviceAddress = service;
 
-        // Enable editing for regular hostnames
-        document.getElementById('edit-subdomain').disabled = false;
-        document.getElementById('edit-domain-select').disabled = false;
+        const protocols = ['http://', 'https://', 'smb://', 'ssh://', 'tcp://', 'udp://', 'rdp://'];
+        for (const p of protocols) {
+            if (service.startsWith(p)) {
+                protocol = p;
+                serviceAddress = service.substring(p.length);
+                break;
+            }
+        }
+
+        // Set values in edit modal
+        document.getElementById('edit-hostname-display').value = hostname; // Display full hostname
+        document.getElementById('edit-hostname').value = hostname; // Keep hidden field for compatibility
+        document.getElementById('edit-protocol').value = protocol;
+        document.getElementById('edit-service-address').value = serviceAddress;
+        document.getElementById('edit-service').value = service; // Keep hidden field for compatibility
+
+        // Set hidden fields for form submission compatibility
+        document.getElementById('edit-subdomain').value = subdomain;
+        document.getElementById('edit-domain-select').value = domain;
+
+        // Enable editing for service field only
         document.getElementById('edit-service').disabled = false;
 
         // Reset styling
-        document.getElementById('edit-subdomain').style.backgroundColor = '';
-        document.getElementById('edit-domain-select').style.backgroundColor = '';
         document.getElementById('edit-service').style.backgroundColor = '';
         document.getElementById('edit-service').style.cursor = '';
 
@@ -855,14 +957,6 @@
         // Set a flag to indicate this is NOT editing system hostname
         window.editingSystemHostname = false;
 
-        // Load domains and set the current domain
-        loadEditDomains().then(() => {
-            const domainSelect = document.getElementById('edit-domain-select');
-            if (domainSelect) {
-                domainSelect.value = domain;
-            }
-        });
-
         openModal('edit-modal');
     }
 
@@ -870,17 +964,18 @@
     document.getElementById('btn-edit-submit').addEventListener('click', async () => {
          const btn = document.getElementById('btn-edit-submit');
 
-         // Build hostname from subdomain and domain
-         const subdomain = document.getElementById('edit-subdomain').value.trim();
-         const domain = document.getElementById('edit-domain-select').value;
+         // Use the existing hostname (cannot be changed)
+         const hostname = document.getElementById('edit-hostname').value;
 
-         // Handle root domain with @ symbol
-         const hostname = subdomain === '@' || !subdomain ? domain : `${subdomain}.${domain}`;
+         // Get protocol and service address
+         const protocol = document.getElementById('edit-protocol').value;
+         const serviceAddress = document.getElementById('edit-service-address').value;
+
+         // Combine protocol and service address
+         let service = protocol + serviceAddress;
 
          // Update hidden field for compatibility
-         document.getElementById('edit-hostname').value = hostname;
-
-         let service = document.getElementById('edit-service').value;
+         document.getElementById('edit-service').value = service;
 
          const originalText = btn.innerHTML;
          btn.innerText = 'Saving...';
@@ -1162,26 +1257,22 @@
         // Get current system hostname
         const currentHostname = '{{ .SystemHostname }}';
 
-        // Parse hostname to get subdomain and domain
-        const parts = currentHostname.split('.');
-        const subdomain = parts.length > 2 ? parts.slice(0, -2).join('.') : '';
-        const domain = parts.slice(-2).join('.');
-
-        // Set values in edit modal
-        document.getElementById('edit-subdomain').value = subdomain;
+        // Set values in edit modal - show full hostname as disabled
+        document.getElementById('edit-hostname-display').value = currentHostname;
         document.getElementById('edit-hostname').value = currentHostname; // Keep hidden field for compatibility
         document.getElementById('edit-service').value = `http://localhost:{{ .Port }}`;
 
-        // Disable service editing for system hostname, but allow hostname editing
+        // Disable editing for system hostname - both hostname and service
         document.getElementById('edit-service').disabled = true;
         document.getElementById('edit-service').style.backgroundColor = '#1f2937';
         document.getElementById('edit-service').style.cursor = 'not-allowed';
 
-        // Keep hostname fields enabled for editing
-        document.getElementById('edit-subdomain').disabled = false;
-        document.getElementById('edit-domain-select').disabled = false;
-        document.getElementById('edit-subdomain').style.backgroundColor = '';
-        document.getElementById('edit-domain-select').style.backgroundColor = '';
+        // Parse hostname to set hidden fields for compatibility
+        const parts = currentHostname.split('.');
+        const subdomain = parts.length > 2 ? parts.slice(0, -2).join('.') : '';
+        const domain = parts.slice(-2).join('.');
+        document.getElementById('edit-subdomain').value = subdomain;
+        document.getElementById('edit-domain-select').value = domain;
 
         // Add a note about system hostname
         const serviceContainer = document.getElementById('edit-service').parentElement;
@@ -1189,20 +1280,12 @@
             const note = document.createElement('p');
             note.id = 'system-hostnote';
             note.className = 'text-xs text-blue-400 mt-1';
-            note.textContent = 'System hostname service cannot be changed';
+            note.textContent = 'System hostname cannot be changed';
             serviceContainer.parentElement.appendChild(note);
         }
 
         // Set a flag to indicate this is editing system hostname
         window.editingSystemHostname = true;
-
-        // Load domains and set the current domain
-        loadEditDomains().then(() => {
-            const domainSelect = document.getElementById('edit-domain-select');
-            if (domainSelect) {
-                domainSelect.value = domain;
-            }
-        });
 
         openModal('edit-modal');
     }
@@ -1258,6 +1341,7 @@
         const subdomain = document.getElementById('system-subdomain').value.trim();
         const domainSelect = document.getElementById('system-domain-select');
         const domain = domainSelect.value;
+        const protocol = document.getElementById('system-protocol').value;
 
         if (!subdomain) {
             Swal.fire({
@@ -1272,7 +1356,7 @@
 
         const hostname = subdomain ? `${subdomain}.${domain}` : domain;
         const port = '{{ .Port }}' || '8020';
-        const service = `http://localhost:${port}`;
+        const service = protocol + `localhost:${port}`;
 
         const btn = this;
         const originalText = btn.innerHTML;

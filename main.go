@@ -502,26 +502,77 @@ func main() {
 					originStatus := "offline"
 					originResponseTime := 0
 
-					// Parse service URL
+					// Parse service URL for health check
 					serviceURL := service
-					if !strings.HasPrefix(serviceURL, "http://") && !strings.HasPrefix(serviceURL, "https://") {
-						serviceURL = "http://" + serviceURL
-					}
 
-					// Try to connect to the origin service
-					start := time.Now()
-					conn, err := net.DialTimeout("tcp", extractHostPort(serviceURL), 3*time.Second)
-					if err == nil {
-						conn.Close()
-						originStatus = "online"
-						originResponseTime = int(time.Since(start).Milliseconds())
+					// Handle different protocols for health checks
+					switch {
+					case strings.HasPrefix(serviceURL, "http://"):
+						fallthrough
+					case strings.HasPrefix(serviceURL, "https://"):
+						// HTTP/HTTPS - extract host:port and try TCP connection
+						conn, err := net.DialTimeout("tcp", extractHostPort(serviceURL), 3*time.Second)
+						if err == nil {
+							conn.Close()
+							originStatus = "online"
+							originResponseTime = 0
+						}
+
+					case strings.HasPrefix(serviceURL, "tcp://"):
+						// TCP - extract host:port and try TCP connection
+						conn, err := net.DialTimeout("tcp", extractHostPort(serviceURL), 3*time.Second)
+						if err == nil {
+							conn.Close()
+							originStatus = "online"
+							originResponseTime = 0
+						}
+
+					case strings.HasPrefix(serviceURL, "udp://"):
+						// UDP - health checks are not reliable for UDP, just mark as configured
+						originStatus = "configured"
+						originResponseTime = 0
+
+					case strings.HasPrefix(serviceURL, "ssh://"):
+						// SSH - extract host:port and try TCP connection (SSH uses TCP)
+						conn, err := net.DialTimeout("tcp", extractHostPort(serviceURL), 3*time.Second)
+						if err == nil {
+							conn.Close()
+							originStatus = "online"
+							originResponseTime = 0
+						}
+
+					case strings.HasPrefix(serviceURL, "smb://"):
+						// SMB - extract host:port and try TCP connection (SMB uses TCP, usually port 445)
+						conn, err := net.DialTimeout("tcp", extractHostPort(serviceURL), 3*time.Second)
+						if err == nil {
+							conn.Close()
+							originStatus = "online"
+							originResponseTime = 0
+						}
+
+					case strings.HasPrefix(serviceURL, "rdp://"):
+						// RDP - extract host:port and try TCP connection (RDP uses TCP, usually port 3389)
+						conn, err := net.DialTimeout("tcp", extractHostPort(serviceURL), 3*time.Second)
+						if err == nil {
+							conn.Close()
+							originStatus = "online"
+							originResponseTime = 0
+						}
+
+					default:
+						// Unknown protocol - try HTTP as fallback for backward compatibility
+						conn, err := net.DialTimeout("tcp", extractHostPort("http://"+service), 3*time.Second)
+						if err == nil {
+							conn.Close()
+							originStatus = "online"
+							originResponseTime = 0
+						}
 					}
 
 					// Check tunnel health (if tunnel is running and service is accessible)
 					tunnelStatus := "offline"
 					if tunnelRunning && originStatus == "online" {
 						// Try to check if the service is accessible through the tunnel
-						start = time.Now()
 						conn, err := net.DialTimeout("tcp", hostname+":443", 3*time.Second)
 						if err == nil {
 							conn.Close()
@@ -1386,20 +1437,49 @@ func main() {
 
 // Helper function to extract host and port from URL
 func extractHostPort(serviceURL string) string {
-	// Default to port 80 if not specified
-	if !strings.Contains(serviceURL, ":") {
-		return serviceURL + ":80"
+	// Remove protocol prefix
+	var hostPort string
+	switch {
+	case strings.HasPrefix(serviceURL, "http://"):
+		hostPort = strings.TrimPrefix(serviceURL, "http://")
+	case strings.HasPrefix(serviceURL, "https://"):
+		hostPort = strings.TrimPrefix(serviceURL, "https://")
+	case strings.HasPrefix(serviceURL, "tcp://"):
+		hostPort = strings.TrimPrefix(serviceURL, "tcp://")
+	case strings.HasPrefix(serviceURL, "udp://"):
+		hostPort = strings.TrimPrefix(serviceURL, "udp://")
+	case strings.HasPrefix(serviceURL, "ssh://"):
+		hostPort = strings.TrimPrefix(serviceURL, "ssh://")
+	case strings.HasPrefix(serviceURL, "smb://"):
+		hostPort = strings.TrimPrefix(serviceURL, "smb://")
+	case strings.HasPrefix(serviceURL, "rdp://"):
+		hostPort = strings.TrimPrefix(serviceURL, "rdp://")
+	default:
+		hostPort = serviceURL
 	}
 
-	// Extract host:port part
-	parts := strings.Split(serviceURL, "/")
-	if len(parts) >= 3 && parts[0] != "" {
-		// URL format: http://host:port/path
-		return parts[2]
+	// Extract host:port part (remove path if present)
+	if idx := strings.Index(hostPort, "/"); idx != -1 {
+		hostPort = hostPort[:idx]
 	}
 
-	// Already in host:port format
-	return serviceURL
+	// Default to port 80 if not specified (for HTTP protocols)
+	if !strings.Contains(hostPort, ":") {
+		// Use appropriate default ports for different protocols
+		if strings.HasPrefix(serviceURL, "https://") {
+			hostPort = hostPort + ":443"
+		} else if strings.HasPrefix(serviceURL, "ssh://") {
+			hostPort = hostPort + ":22"
+		} else if strings.HasPrefix(serviceURL, "smb://") {
+			hostPort = hostPort + ":445"
+		} else if strings.HasPrefix(serviceURL, "rdp://") {
+			hostPort = hostPort + ":3389"
+		} else {
+			hostPort = hostPort + ":80"
+		}
+	}
+
+	return hostPort
 }
 
 // Helper function to get keys from a map for debugging
