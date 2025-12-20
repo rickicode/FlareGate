@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-bookworm AS builder
+FROM golang:1.25-bookworm AS builder
 
 # Install build dependencies (none needed for pure Go)
 # SSL certs might be needed for download if not in base, but golang image has them.
