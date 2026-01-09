@@ -22,8 +22,8 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
-	"flaregate/internal/config"
 	"flaregate/internal/cloudflare"
+	"flaregate/internal/config"
 	"flaregate/internal/tunnel"
 )
 
@@ -173,9 +173,9 @@ func main() {
 		Path:     "/",
 		MaxAge:   86400 * 7, // 7 days
 		HttpOnly: true,
-		Secure:   false,    // Important for HTTP access (not HTTPS)
+		Secure:   false, // Important for HTTP access (not HTTPS)
 		SameSite: http.SameSiteLaxMode,
-		Domain:   "",       // Allow all domains
+		Domain:   "", // Allow all domains
 	})
 
 	r.Use(sessions.Sessions("mysession", store))
@@ -186,7 +186,7 @@ func main() {
 		log.Fatal(err)
 	}
 	r.StaticFS("/static", http.FS(staticFS))
-	
+
 	// Load Templates from Embed FS (Including Partials)
 	// Note: We use ParseFS to load ALL templates including partials pattern
 	tmpl := template.Must(template.New("").Funcs(r.FuncMap).ParseFS(f, "templates/*.html", "templates/partials/*.html"))
@@ -243,12 +243,12 @@ func main() {
 		log.Printf("[Debug] Session - userID: %v, username: %v, hasUsers: %v", userID, username, hasUsers)
 
 		c.JSON(http.StatusOK, gin.H{
-			"session_user_id":   userID,
-			"session_username":  username,
-			"has_users":         hasUsers,
-			"db_user_id":        user.ID,
-			"db_username":       user.Username,
-			"cookies":           c.Request.Cookies(),
+			"session_user_id":  userID,
+			"session_username": username,
+			"has_users":        hasUsers,
+			"db_user_id":       user.ID,
+			"db_username":      user.Username,
+			"cookies":          c.Request.Cookies(),
 		})
 	})
 
@@ -335,7 +335,7 @@ func main() {
 
 		if password != confirmPassword {
 			c.HTML(http.StatusOK, "register.html", gin.H{
-				"error": "Passwords do not match",
+				"error":    "Passwords do not match",
 				"username": username,
 			})
 			return
@@ -343,7 +343,7 @@ func main() {
 
 		if len(password) < 6 {
 			c.HTML(http.StatusOK, "register.html", gin.H{
-				"error": "Password must be at least 6 characters",
+				"error":    "Password must be at least 6 characters",
 				"username": username,
 			})
 			return
@@ -352,7 +352,7 @@ func main() {
 		user, err := config.CreateUser(username, password)
 		if err != nil {
 			c.HTML(http.StatusOK, "register.html", gin.H{
-				"error": "Failed to create user: " + err.Error(),
+				"error":    "Failed to create user: " + err.Error(),
 				"username": username,
 			})
 			return
@@ -400,13 +400,13 @@ func main() {
 			}
 
 			c.HTML(http.StatusOK, "index.html", gin.H{
-				"Configured": true,
-				"TunnelName": cfg.TunnelName,
-				"Ingress":    visibleIngress,
+				"Configured":       true,
+				"TunnelName":       cfg.TunnelName,
+				"Ingress":          visibleIngress,
 				"ShowChangeTunnel": true,
-				"ActivePage": "dashboard",
-				"SystemHostname": cfg.SystemHostname,
-				"Port": port,
+				"ActivePage":       "dashboard",
+				"SystemHostname":   cfg.SystemHostname,
+				"Port":             port,
 			})
 		})
 
@@ -438,9 +438,9 @@ func main() {
 				tunnelName = cfg.TunnelName
 			}
 			c.HTML(http.StatusOK, "log.html", gin.H{
-				"TunnelName": tunnelName,
-				"ShowChangeTunnel": false, 
-				"ActivePage": "logs",
+				"TunnelName":       tunnelName,
+				"ShowChangeTunnel": false,
+				"ActivePage":       "logs",
 			})
 		})
 
@@ -590,21 +590,19 @@ func main() {
 					}
 
 					healthChecks = append(healthChecks, map[string]interface{}{
-						"hostname":       hostname,
-						"origin_status":  originStatus,
-						"tunnel_status":  tunnelStatus,
-						"response_time":  originResponseTime,
+						"hostname":      hostname,
+						"origin_status": originStatus,
+						"tunnel_status": tunnelStatus,
+						"response_time": originResponseTime,
 					})
 				}
 
 				c.JSON(http.StatusOK, gin.H{
-					"success":       true,
+					"success":        true,
 					"tunnel_running": tunnelRunning,
-					"health_checks": healthChecks,
+					"health_checks":  healthChecks,
 				})
 			})
-
-
 
 			// Get Tunnels API
 			api.GET("/tunnels", func(c *gin.Context) {
@@ -612,7 +610,7 @@ func main() {
 				if err != nil {
 					c.JSON(http.StatusOK, gin.H{
 						"success": true,
-						"result": []any{},
+						"result":  []any{},
 					})
 					return
 				}
@@ -632,12 +630,14 @@ func main() {
 
 				c.JSON(http.StatusOK, gin.H{
 					"success": true,
-					"result": resultList,
+					"result":  resultList,
 				})
 			})
 
 			api.POST("/verify-token", func(c *gin.Context) {
-				var req struct{ Token string `json:"token"` }
+				var req struct {
+					Token string `json:"token"`
+				}
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 					return
@@ -670,7 +670,7 @@ func main() {
 					fmt.Printf("[Verify] DNS access check failed: status=%d, error=%v\n", zonesStatus, err)
 					c.JSON(http.StatusBadRequest, gin.H{
 						"success": false,
-						"error": "Insufficient permissions: API token requires 'Zone:Zone:Read' and 'Zone:DNS:Edit' permissions",
+						"error":   "Insufficient permissions: API token requires 'Zone:Zone:Read' and 'Zone:DNS:Edit' permissions",
 					})
 					return
 				}
@@ -681,7 +681,7 @@ func main() {
 					fmt.Printf("[Verify] Tunnel access check failed: status=%d, error=%v\n", tunnelsStatus, err)
 					c.JSON(http.StatusBadRequest, gin.H{
 						"success": false,
-						"error": "Insufficient permissions: API token requires 'Account:Cloudflare Tunnel:Edit' permission",
+						"error":   "Insufficient permissions: API token requires 'Account:Cloudflare Tunnel:Edit' permission",
 					})
 					return
 				}
@@ -802,7 +802,7 @@ func main() {
 					"ingress":     visibleIngress,
 				})
 			})
-			
+
 			api.GET("/zones", func(c *gin.Context) {
 				cfg, _ := config.GetAppConfig()
 				if cfg == nil {
@@ -824,8 +824,8 @@ func main() {
 				output, err := cmd.Output()
 				if err != nil {
 					c.JSON(http.StatusServiceUnavailable, gin.H{
-						"success": false,
-						"error": "Docker is not available or not accessible",
+						"success":    false,
+						"error":      "Docker is not available or not accessible",
 						"containers": []interface{}{},
 					})
 					return
@@ -835,7 +835,7 @@ func main() {
 				lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 				if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
 					c.JSON(http.StatusOK, gin.H{
-						"success": true,
+						"success":    true,
 						"containers": []interface{}{},
 					})
 					return
@@ -967,8 +967,6 @@ func main() {
 				})
 			})
 
-
-
 			api.POST("/hostname", func(c *gin.Context) {
 				var req struct {
 					Hostname string `json:"hostname"`
@@ -978,6 +976,19 @@ func main() {
 					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 					return
 				}
+
+				// 1. Validate required fields FIRST (before any API calls)
+				req.Hostname = strings.TrimSpace(req.Hostname)
+				req.Service = strings.TrimSpace(req.Service)
+				if req.Hostname == "" {
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Hostname is required"})
+					return
+				}
+				if req.Service == "" {
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Service is required"})
+					return
+				}
+
 				cfg, _ := config.GetAppConfig()
 				if cfg == nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Not configured"})
@@ -1021,25 +1032,29 @@ func main() {
 					return
 				}
 
-				// 2. CHECK DNS Existence
+				// 3. CHECK DNS Existence - Only check A and CNAME records
 				checkRes, _, err := cloudflare.Request("GET", fmt.Sprintf("/zones/%s/dns_records?name=%s", zoneID, req.Hostname), cfg.APIToken, nil)
 				if err == nil {
 					if valid, ok := checkRes["success"].(bool); ok && valid {
 						records, _ := checkRes["result"].([]interface{})
-						if len(records) > 0 {
-							// Return detailed conflict info
-							rec := records[0].(map[string]interface{})
-							c.JSON(http.StatusConflict, gin.H{
-								"success": false,
-								"error":   "DNS Record Exists",
-								"record": map[string]interface{}{
-									"id":      rec["id"],
-									"type":    rec["type"],
-									"name":    rec["name"],
-									"content": rec["content"],
-								},
-							})
-							return
+						// Filter only A and CNAME records (ignore TXT, MX, SRV, etc.)
+						for _, recRaw := range records {
+							rec := recRaw.(map[string]interface{})
+							recordType, _ := rec["type"].(string)
+							if recordType == "A" || recordType == "CNAME" {
+								// Return detailed conflict info
+								c.JSON(http.StatusConflict, gin.H{
+									"success": false,
+									"error":   "DNS Record Exists",
+									"record": map[string]interface{}{
+										"id":      rec["id"],
+										"type":    rec["type"],
+										"name":    rec["name"],
+										"content": rec["content"],
+									},
+								})
+								return
+							}
 						}
 					}
 				}
@@ -1141,7 +1156,7 @@ func main() {
 						"ingress": newIngress,
 					},
 				}
-				
+
 				saveRes, code, err := cloudflare.Request("PUT", confUrl, cfg.APIToken, updateBody)
 				if err != nil {
 					fmt.Printf("[Error] Tunnel config update failed: %v\n", err)
@@ -1178,7 +1193,7 @@ func main() {
 			api.DELETE("/dns", func(c *gin.Context) {
 				var req struct {
 					RecordID string `json:"record_id"`
-					Hostname string `json:"hostname"` 
+					Hostname string `json:"hostname"`
 				}
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
@@ -1199,7 +1214,9 @@ func main() {
 				}
 				findZone := func(d string) (string, error) {
 					res, _, err := cloudflare.Request("GET", "/zones?name="+d, cfg.APIToken, nil)
-					if err != nil { return "", err }
+					if err != nil {
+						return "", err
+					}
 					results, _ := res["result"].([]interface{})
 					if len(results) > 0 {
 						return results[0].(map[string]interface{})["id"].(string), nil
@@ -1225,7 +1242,7 @@ func main() {
 					c.JSON(code, gin.H{"success": false, "error": err.Error()})
 					return
 				}
-				
+
 				c.JSON(http.StatusOK, gin.H{"success": true})
 			})
 
@@ -1236,12 +1253,12 @@ func main() {
 				}
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-					return 
+					return
 				}
 				cfg, _ := config.GetAppConfig()
 				confUrl := fmt.Sprintf("/accounts/%s/cfd_tunnel/%s/configurations", cfg.AccountID, cfg.TunnelID)
 				confRes, _, _ := cloudflare.Request("GET", confUrl, cfg.APIToken, nil)
-				
+
 				var ingress []interface{}
 				if rObj, ok := confRes["result"].(map[string]interface{}); ok {
 					if cObj, ok := rObj["config"].(map[string]interface{}); ok {
@@ -1263,7 +1280,7 @@ func main() {
 					c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Hostname not found"})
 					return
 				}
-				updateBody := map[string]interface{}{ "config": map[string]interface{}{ "ingress": ingress } }
+				updateBody := map[string]interface{}{"config": map[string]interface{}{"ingress": ingress}}
 				cloudflare.Request("PUT", confUrl, cfg.APIToken, updateBody)
 				go func() { runner.Restart(cfg) }()
 				c.JSON(http.StatusOK, gin.H{"success": true})
@@ -1280,7 +1297,7 @@ func main() {
 				cfg, _ := config.GetAppConfig()
 				confUrl := fmt.Sprintf("/accounts/%s/cfd_tunnel/%s/configurations", cfg.AccountID, cfg.TunnelID)
 				confRes, _, _ := cloudflare.Request("GET", confUrl, cfg.APIToken, nil)
-				
+
 				var ingress []interface{}
 				if rObj, ok := confRes["result"].(map[string]interface{}); ok {
 					if cObj, ok := rObj["config"].(map[string]interface{}); ok {
@@ -1300,14 +1317,18 @@ func main() {
 					c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Hostname not found"})
 					return
 				}
-				updateBody := map[string]interface{}{ "config": map[string]interface{}{ "ingress": newIngress } }
+				updateBody := map[string]interface{}{"config": map[string]interface{}{"ingress": newIngress}}
 				cloudflare.Request("PUT", confUrl, cfg.APIToken, updateBody)
 
 				// 2. Delete DNS (Best effort)
 				parts := strings.Split(req.Hostname, ".")
 				var domain string
-				if len(parts) >= 2 { domain = strings.Join(parts[len(parts)-2:], ".") } else { domain = req.Hostname }
-				
+				if len(parts) >= 2 {
+					domain = strings.Join(parts[len(parts)-2:], ".")
+				} else {
+					domain = req.Hostname
+				}
+
 				res, _, _ := cloudflare.Request("GET", "/zones?name="+domain, cfg.APIToken, nil)
 				if r, ok := res["result"].([]interface{}); ok && len(r) > 0 {
 					zoneID := r[0].(map[string]interface{})["id"].(string)
@@ -1332,6 +1353,14 @@ func main() {
 					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 					return
 				}
+
+				// 1. Validate required fields FIRST (before any API calls)
+				req.Hostname = strings.TrimSpace(req.Hostname)
+				if req.Hostname == "" {
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Hostname is required"})
+					return
+				}
+
 				cfg, _ := config.GetAppConfig()
 				if cfg == nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Not configured"})
@@ -1388,25 +1417,29 @@ func main() {
 					return
 				}
 
-				// 2. CHECK DNS Existence
+				// 3. CHECK DNS Existence - Only check A and CNAME records
 				checkRes, _, err := cloudflare.Request("GET", fmt.Sprintf("/zones/%s/dns_records?name=%s", zoneID, req.Hostname), cfg.APIToken, nil)
 				if err == nil {
 					if valid, ok := checkRes["success"].(bool); ok && valid {
 						records, _ := checkRes["result"].([]interface{})
-						if len(records) > 0 {
-							// Return detailed conflict info
-							rec := records[0].(map[string]interface{})
-							c.JSON(http.StatusConflict, gin.H{
-								"success": false,
-								"error":   "DNS Record Exists",
-								"record": map[string]interface{}{
-									"id":      rec["id"],
-									"type":    rec["type"],
-									"name":    rec["name"],
-									"content": rec["content"],
-								},
-							})
-							return
+						// Filter only A and CNAME records (ignore TXT, MX, SRV, etc.)
+						for _, recRaw := range records {
+							rec := recRaw.(map[string]interface{})
+							recordType, _ := rec["type"].(string)
+							if recordType == "A" || recordType == "CNAME" {
+								// Return detailed conflict info
+								c.JSON(http.StatusConflict, gin.H{
+									"success": false,
+									"error":   "DNS Record Exists",
+									"record": map[string]interface{}{
+										"id":      rec["id"],
+										"type":    rec["type"],
+										"name":    rec["name"],
+										"content": rec["content"],
+									},
+								})
+								return
+							}
 						}
 					}
 				}
@@ -1504,9 +1537,9 @@ func main() {
 				go func() { runner.Restart(cfg) }()
 
 				c.JSON(http.StatusOK, gin.H{
-					"success": true,
+					"success":  true,
 					"hostname": req.Hostname,
-					"service": req.Service,
+					"service":  req.Service,
 				})
 			})
 
@@ -1518,7 +1551,7 @@ func main() {
 					return
 				}
 				c.JSON(http.StatusOK, gin.H{
-					"success": true,
+					"success":        true,
 					"systemHostname": cfg.SystemHostname,
 				})
 			})
@@ -1692,4 +1725,3 @@ func generateRandomString(length int) (string, error) {
 	}
 	return base64.StdEncoding.EncodeToString(b), nil
 }
-
