@@ -1,7 +1,13 @@
 package config
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -14,12 +20,12 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	ID            uint   `gorm:"primaryKey" json:"id"`
-	AccountID     string `json:"account_id"`
-	TunnelID      string `json:"tunnel_id"`
-	TunnelName    string `json:"tunnel_name"`
-	APIToken      string `json:"api_token"`
-	TunnelToken   string `json:"tunnel_token"`
+	ID             uint   `gorm:"primaryKey" json:"id"`
+	AccountID      string `json:"account_id"`
+	TunnelID       string `json:"tunnel_id"`
+	TunnelName     string `json:"tunnel_name"`
+	APIToken       string `json:"-"`
+	TunnelToken    string `json:"-"`
 	SystemHostname string `json:"system_hostname"`
 }
 
@@ -33,6 +39,8 @@ type User struct {
 }
 
 var DB *gorm.DB
+
+const encryptedPrefix = "enc:v1:"
 
 func InitDB() {
 	// Ensure data dir
@@ -142,22 +150,136 @@ func GetAppConfig() (*Config, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
+	apiToken, err := decryptSecretIfNeeded(cfg.APIToken)
+	if err != nil {
+		return nil, err
+	}
+	tunnelToken, err := decryptSecretIfNeeded(cfg.TunnelToken)
+	if err != nil {
+		return nil, err
+	}
+	cfg.APIToken = apiToken
+	cfg.TunnelToken = tunnelToken
 	return &cfg, nil
 }
 
 func SaveAppConfig(cfg *Config) error {
+	apiToken, err := encryptSecretIfNeeded(cfg.APIToken)
+	if err != nil {
+		return err
+	}
+	tunnelToken, err := encryptSecretIfNeeded(cfg.TunnelToken)
+	if err != nil {
+		return err
+	}
+	copyCfg := *cfg
+	copyCfg.APIToken = apiToken
+	copyCfg.TunnelToken = tunnelToken
+
 	var existing Config
 	if result := DB.First(&existing); result.Error == nil {
-		cfg.ID = existing.ID
-		// Preserve Token if empty in update (though usually we pass full object)
-		if cfg.TunnelToken == "" {
-			cfg.TunnelToken = existing.TunnelToken
+		copyCfg.ID = existing.ID
+		if copyCfg.AccountID == "" {
+			copyCfg.AccountID = existing.AccountID
 		}
-		return DB.Save(cfg).Error
+		if copyCfg.TunnelID == "" {
+			copyCfg.TunnelID = existing.TunnelID
+		}
+		if copyCfg.TunnelName == "" {
+			copyCfg.TunnelName = existing.TunnelName
+		}
+		if copyCfg.SystemHostname == "" {
+			copyCfg.SystemHostname = existing.SystemHostname
+		}
+		// Preserve encrypted secrets if empty in update.
+		if copyCfg.TunnelToken == "" {
+			copyCfg.TunnelToken = existing.TunnelToken
+		}
+		if copyCfg.APIToken == "" {
+			copyCfg.APIToken = existing.APIToken
+		}
+		return DB.Save(&copyCfg).Error
 	}
-	return DB.Create(cfg).Error
+	return DB.Create(&copyCfg).Error
 }
 
 func DeleteAppConfig() error {
 	return DB.Where("1 = 1").Delete(&Config{}).Error
+}
+
+func encryptSecretIfNeeded(value string) (string, error) {
+	if value == "" || isEncryptedValue(value) {
+		return value, nil
+	}
+	key, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+	ciphertext := gcm.Seal(nonce, nonce, []byte(value), nil)
+	return encryptedPrefix + base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func decryptSecretIfNeeded(value string) (string, error) {
+	if value == "" || !isEncryptedValue(value) {
+		return value, nil
+	}
+	key, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
+	raw, err := base64.StdEncoding.DecodeString(value[len(encryptedPrefix):])
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	if len(raw) < gcm.NonceSize() {
+		return "", fmt.Errorf("encrypted secret too short")
+	}
+	nonce := raw[:gcm.NonceSize()]
+	ciphertext := raw[gcm.NonceSize():]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+	return string(plaintext), nil
+}
+
+func isEncryptedValue(value string) bool {
+	return len(value) > len(encryptedPrefix) && value[:len(encryptedPrefix)] == encryptedPrefix
+}
+
+func getEncryptionKey() ([]byte, error) {
+	secret := os.Getenv("SECRET_KEY")
+	if secret == "" {
+		content, err := os.ReadFile("data/secret.key")
+		if err != nil {
+			return nil, fmt.Errorf("read secret key for config encryption: %w", err)
+		}
+		secret = string(content)
+	}
+	secret = fmt.Sprintf("%s", secret)
+	if secret == "" {
+		return nil, fmt.Errorf("secret key is empty")
+	}
+	sum := sha256.Sum256([]byte(secret))
+	return sum[:], nil
 }

@@ -60,4 +60,4 @@ go.work
 
 # Claude Code history
 .history/
-.lh/
+.lh/__pycache__/

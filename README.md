@@ -79,6 +79,40 @@ A lightweight, high-performance web dashboard to manage Cloudflare Tunnel hostna
     - Use the **Add New Hostname** button to map a subdomain (e.g., `app.example.com`) to a local service (e.g., `http://localhost:3000`).
     - The tool will automatically handle the DNS CNAME and Ingress configuration for you.
 
+### ⚡ Quick NAT VPS Provisioning
+
+If you just want the fast flow on a NAT VPS, use the helper script:
+
+```bash
+python3 scripts/flaregate-provision.py
+```
+
+It will ask for:
+- the hostname you want, and
+- the upstream target to forward to (`ip:port` or full URL)
+
+Then it will:
+- create or reuse a Cloudflare Tunnel,
+- create/update the DNS CNAME,
+- automatically remove conflicting DNS records for the same hostname when needed,
+- push the ingress config,
+- save a small state file under `~/.local/share/flaregate/`.
+
+You can also pass non-interactive flags:
+
+```bash
+python3 scripts/flaregate-provision.py \
+  --hostname app.example.com \
+  --target 127.0.0.1:3000 \
+  --token "$CLOUDFLARE_API_TOKEN"
+```
+
+If you prefer Make:
+
+```bash
+make provision
+```
+
 ## 📂 Project Structure
 
 ```

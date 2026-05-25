@@ -1,13 +1,16 @@
-.PHONY: build run clean
-
-# Build everything (Frontend + Backend)
+.PHONY: build run clean provision
+# Build the backend binary
 build:
-	go mod tidy
-	go build -o flaregate main.go
+	go build -o flaregate .
 
 # Run the application
 run: build
-	 sudo PORT=8025 ./flaregate
+	PORT=8025 ./flaregate
+
+# NAT VPS helper: create/update Cloudflare Tunnel + DNS in one go
+provision:
+	python3 scripts/flaregate-provision.py
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning up..."

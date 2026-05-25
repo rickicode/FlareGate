@@ -79,7 +79,7 @@
         </div>
         <div class="flex items-center gap-4">
             <!-- Health Status Card -->
-            <div class="bg-white dark:bg-surface-dark p-4 rounded-md shadow-sm border border-gray-100 dark:border-white/5 flex items-center gap-4 min-w-[160px]">
+            <div id="health-card" class="bg-white dark:bg-surface-dark p-4 rounded-md shadow-sm border border-gray-100 dark:border-white/5 flex items-center gap-4 min-w-[160px] cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all" onclick="openCloudflaredModal()" title="Click to manage cloudflared">
                 <div id="health-icon-bg" class="p-2 bg-gray-100 dark:bg-white/10 rounded-lg text-gray-500 transition-colors">
                     <span class="material-symbols-outlined">health_and_safety</span>
                 </div>
@@ -555,6 +555,108 @@
             <button id="btn-system-hostname-save" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-md transition-colors shadow-lg shadow-blue-600/20">
                 Add Hostname
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Cloudflared Install Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300" id="cloudflared-install-modal">
+    <div class="bg-surface-dark bg-gradient-to-br from-gray-900 to-black border border-primary/20 rounded-md w-full max-w-2xl relative overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-lg blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 w-64 h-64 bg-primary/10 rounded-lg blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+
+        <div class="p-6 md:p-8 border-b border-white/10 relative z-10 flex justify-between items-start">
+            <div>
+                <h3 class="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">cloud_sync</span>
+                    <span id="cf-install-title">Cloudflared Setup</span>
+                </h3>
+                <p id="cf-install-subtitle" class="text-gray-400 text-sm mt-1">Detecting system...</p>
+            </div>
+            <a class="text-gray-400 hover:text-white transition-colors" href="#" onclick="closeModal('cloudflared-install-modal'); return false;">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+        </div>
+
+        <div class="p-6 md:p-8 relative z-10 flex flex-col gap-6 overflow-y-auto" id="cf-install-body">
+            <!-- Loading state -->
+            <div id="cf-install-loading" class="flex flex-col items-center py-8 gap-4">
+                <span class="material-symbols-outlined text-4xl text-primary animate-spin">refresh</span>
+                <p class="text-gray-400">Checking cloudflared status...</p>
+            </div>
+
+            <!-- Docker / Already installed state -->
+            <div id="cf-install-docker" class="hidden flex flex-col gap-6">
+                <div class="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <p class="text-sm text-green-300 flex items-center gap-2">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        <span>cloudflared is already installed</span>
+                        <span id="cf-docker-badge" class="hidden px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs font-bold">Docker</span>
+                    </p>
+                </div>
+                <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                    <p class="text-sm text-yellow-300 flex items-start gap-2">
+                        <span class="material-symbols-outlined flex-shrink-0">info</span>
+                        <span>Tunnel is stopped. Click below to start cloudflared in the background.</span>
+                    </p>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-xs font-bold text-primary uppercase tracking-wider">Tunnel Token</label>
+                    <div class="bg-black/40 border border-white/10 rounded-md p-3 flex items-center gap-2">
+                        <code id="cf-token-display" class="flex-1 text-xs text-gray-300 font-mono break-all select-all">Loading token...</code>
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('cf-token-display').textContent)" class="p-2 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors" title="Copy token">
+                            <span class="material-symbols-outlined text-[18px]">content_copy</span>
+                        </button>
+                    </div>
+                </div>
+                <button id="btn-cf-start" onclick="startCloudflaredDocker()" class="w-full py-3 bg-primary hover:bg-pink-600 text-white text-sm font-bold rounded-md transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined">play_arrow</span>
+                    <span>Start cloudflared</span>
+                </button>
+            </div>
+
+            <!-- Binary / Need install state -->
+            <div id="cf-install-binary" class="hidden flex flex-col gap-6">
+                <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                    <p class="text-sm text-red-300 flex items-start gap-2">
+                        <span class="material-symbols-outlined flex-shrink-0">error</span>
+                        <span>cloudflared is <strong>not installed</strong> on this system. Enter your sudo password to install it automatically.</span>
+                    </p>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-xs font-bold text-primary uppercase tracking-wider">Detected OS</label>
+                    <code id="cf-os-display" class="bg-black/40 border border-white/10 rounded-md p-3 text-sm text-gray-300 font-mono">unknown</code>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-xs font-bold text-primary uppercase tracking-wider">Tunnel Token</label>
+                    <div class="bg-black/40 border border-white/10 rounded-md p-3 flex items-center gap-2">
+                        <code id="cf-token-display-bin" class="flex-1 text-xs text-gray-300 font-mono break-all select-all">Loading token...</code>
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('cf-token-display-bin').textContent)" class="p-2 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors" title="Copy token">
+                            <span class="material-symbols-outlined text-[18px]">content_copy</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-xs font-bold text-yellow-400 uppercase tracking-wider">Sudo Password</label>
+                    <input id="cf-sudo-password" type="password" class="w-full bg-black/40 border border-white/10 rounded-md text-white placeholder-gray-500 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/10 text-sm py-3 px-4 font-mono transition-all" placeholder="Enter your sudo password"/>
+                    <p class="text-xs text-gray-500">Required to install packages and systemd service. Not stored.</p>
+                </div>
+                <!-- Progress log -->
+                <div id="cf-install-log" class="hidden bg-black/60 border border-white/10 rounded-md p-4 max-h-40 overflow-y-auto">
+                    <div id="cf-log-content" class="text-xs text-gray-400 font-mono space-y-1"></div>
+                </div>
+                <button id="btn-cf-install" onclick="installCloudflared()" class="w-full py-3 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold rounded-md transition-colors flex items-center justify-center gap-2 shadow-lg shadow-yellow-600/20">
+                    <span class="material-symbols-outlined">download</span>
+                    <span>Install cloudflared</span>
+                </button>
+            </div>
+
+            <!-- Error state -->
+            <div id="cf-install-error" class="hidden flex flex-col gap-4">
+                <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                    <p id="cf-error-msg" class="text-sm text-red-300"></p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1704,18 +1806,103 @@
                     color: '#f3f4f6'
                 });
             }
-        } catch (error) {
-            // Reset button on error
-            btn.innerHTML = originalText;
+            } catch (error) {
+                // Reset button on error
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Network error occurred',
+                    background: '#1f2937',
+                    color: '#f3f4f6'
+                });
+            }
+        });
+
+    // ========== CLOUDFLARED INSTALL MODAL ==========
+
+    async function openCloudflaredModal() {
+        openModal('cloudflared-install-modal');
+        document.getElementById('cf-install-loading').classList.remove('hidden');
+        document.getElementById('cf-install-docker').classList.add('hidden');
+        document.getElementById('cf-install-binary').classList.add('hidden');
+        document.getElementById('cf-install-error').classList.add('hidden');
+        document.getElementById('cf-install-title').textContent = 'Cloudflared Setup';
+        document.getElementById('cf-install-subtitle').textContent = 'Detecting system...';
+
+        try {
+            const data = await safeFetch('/api/cloudflared-status');
+            document.getElementById('cf-install-loading').classList.add('hidden');
+            if (!data.success) { showCFError('Failed to check cloudflared status'); return; }
+            const token = data.token_hint || 'Not configured';
+            document.getElementById('cf-token-display').textContent = token;
+            document.getElementById('cf-token-display-bin').textContent = token;
+            if (data.installed) {
+                document.getElementById('cf-install-docker').classList.remove('hidden');
+                document.getElementById('cf-install-subtitle').textContent = data.in_docker ? 'cloudflared is available in this Docker container' : 'cloudflared is installed on this system';
+                if (data.in_docker) { document.getElementById('cf-docker-badge').classList.remove('hidden'); }
+            } else {
+                document.getElementById('cf-install-binary').classList.remove('hidden');
+                document.getElementById('cf-install-title').textContent = 'Install cloudflared';
+                document.getElementById('cf-install-subtitle').textContent = 'cloudflared is not installed';
+                document.getElementById('cf-os-display').textContent = data.os || 'unknown';
+            }
+        } catch(e) { document.getElementById('cf-install-loading').classList.add('hidden'); showCFError('Network error: ' + e.message); }
+    }
+
+    function showCFError(msg) { document.getElementById('cf-install-error').classList.remove('hidden'); document.getElementById('cf-error-msg').textContent = msg; }
+
+    function cfLog(msg) {
+        const logDiv = document.getElementById('cf-install-log');
+        const content = document.getElementById('cf-log-content');
+        logDiv.classList.remove('hidden');
+        const line = document.createElement('div');
+        line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+        content.appendChild(line);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    async function startCloudflaredDocker() {
+        const btn = document.getElementById('btn-cf-start');
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Starting...';
+        btn.disabled = true;
+        try {
+            await new Promise(r => setTimeout(r, 2000));
+            checkHealth();
+            closeModal('cloudflared-install-modal');
+        } catch(e) { Swal.fire('Error', e.message, 'error'); }
+        btn.innerHTML = '<span class="material-symbols-outlined">play_arrow</span><span>Start cloudflared</span>';
+        btn.disabled = false;
+    }
+
+    async function installCloudflared() {
+        const password = document.getElementById('cf-sudo-password').value;
+        if (!password) { Swal.fire('Error', 'Please enter sudo password', 'error'); return; }
+        const btn = document.getElementById('btn-cf-install');
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Installing...';
+        btn.disabled = true;
+        document.getElementById('cf-install-log').classList.remove('hidden');
+        document.getElementById('cf-log-content').innerHTML = '';
+        cfLog('Starting cloudflared installation...');
+        try {
+            const data = await safeFetch('/api/cloudflared-install', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sudo_password: password}) });
+            if (data.success) {
+                cfLog('✅ ' + (data.message || 'Done'));
+                closeModal('cloudflared-install-modal');
+                checkHealth();
+                Swal.fire({ icon: 'success', title: 'Installed!', text: 'cloudflared service is running.', timer: 2500, showConfirmButton: false });
+            } else {
+                cfLog('❌ ' + (data.error || 'Failed'));
+                btn.innerHTML = '<span class="material-symbols-outlined">download</span><span>Install cloudflared</span>';
+                btn.disabled = false;
+                Swal.fire('Install Failed', data.error || 'Unknown error', 'error');
+            }
+        } catch(e) {
+            cfLog('❌ Network error: ' + e.message);
+            btn.innerHTML = '<span class="material-symbols-outlined">download</span><span>Install cloudflared</span>';
             btn.disabled = false;
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.message || 'Network error occurred',
-                background: '#1f2937',
-                color: '#f3f4f6'
-            });
         }
-    });
+    }
 </script>
 </body></html>
