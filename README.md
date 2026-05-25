@@ -1,105 +1,100 @@
 # FlareGate
 
-A lightweight, high-performance web dashboard to manage Cloudflare Tunnel hostnames and ingress rules. Built with **Go (Golang)** and **Tailwind CSS**, it simplifies the process of mapping public domains to local services without manually editing YAML files or using the slow Cloudflare Zero Trust dashboard.
+A lightweight, high-performance dashboard + CLI to manage Cloudflare Tunnel hostnames and ingress rules on NAT VPS. Built with **Go** and **Tailwind CSS** — single binary, no dependencies.
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go" alt="Go version">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
+</p>
 
 ## ✨ Features
 
-- **Blazing Fast**: Written in Go using the [Gin](https://github.com/gin-gonic/gin) framework.
-- **Single Binary**: Compiles into a single executable for easy deployment.
-- **Beautiful UI**: Modern, responsive dashboard built with Tailwind CSS.
-- **Magic Setup**: Simple setup wizard to verify your Cloudflare API token and select a tunnel.
-- **Dashboard Management**:
-  - **Add Hostnames**: Automatically creates DNS CNAME records and updates Tunnel Ingress rules in one click.
-  - **Edit Services**: Quickly change the local service URL (e.g., changing port).
-  - **Delete Hostnames**: Remove routes safely.
-- **Persistent Storage**: Stores configuration in a local SQLite database (`data/tunnel_manager.db`).
-- **Error Handling**: Graceful error handling with custom error pages.
+- **Single Binary** — compiles into one executable, deploy anywhere
+- **CLI Mode** — provision, list, remove hostnames without opening a browser
+- **Web Dashboard** — beautiful dark UI with real-time health checks
+- **Auto DNS + Ingress** — one click to map a domain to a local service
+- **Cloudflared Install Modal** — auto-detect Docker/binary mode, install + systemd service with sudo password support
+- **Security Hardened** — AES-256-GCM token encryption, bcrypt passwords, PASETO v4 auth
+- **Docker Ready** — multi-stage build with cloudflared pre-installed
+- **Python Provision Script** — dependency-free helper for minimal VPS images
+- **SQLite Storage** — all config encrypted at rest, no external DB needed
 
-## 🛠️ Prerequisites
+## 🚀 Quick Start
 
-- **Go 1.16+**: Required to build the application.
-- **GCC**: Required for `go-sqlite3` driver (part of `build-essential` on Linux).
-- **Cloudflare Account**: You need an active Cloudflare account and a Cloudflare Tunnel created (Managed Remotely).
+### CLI mode (no browser, single command)
 
-## 🚀 Installation & Build
+```bash
+cd /workspaces/FlareGate
+./flaregate provision app.example.com localhost:3000
+```
 
-1.  **Clone the repository** (if applicable) or navigate to the project source.
+### Web dashboard
 
-2.  **Initialize Dependencies**:
-    ```bash
-    go mod tidy
-    ```
+```bash
+./flaregate
+# Open http://localhost:8020 → register → enter Cloudflare token → done
+```
 
-3.  **Build the Binary**:
-    ```bash
-    go build -o flaregate
-    ```
+First run shows registration page. After setup, the dashboard manages everything.
 
-    This will create an executable file named `flaregate` in the current directory.
+## 📋 CLI Commands
 
-## ⚙️ Configuration
+```bash
+flaregate provision <hostname> <target>    # Create DNS + tunnel ingress
+flaregate hostname list                    # List all configured hostnames
+flaregate hostname remove <hostname>       # Remove hostname + DNS cleanup
+flaregate status                           # Show config, tunnel, health
+flaregate token                            # Print cloudflared run command
+flaregate help                             # Full usage
+```
 
-1.  **Environment Variables**:
-    Copy the example environment file:
-    ```bash
-    cp .env.example .env
-    ```
+**Examples:**
+```bash
+flaregate provision app.hijitoko.com localhost:3000
+flaregate provision api.example.com 127.0.0.1:8080
+flaregate hostname remove old.example.com
+```
 
-2.  **Edit `.env`**:
-    Open `.env` and configure your admin credentials and port:
-    ```ini
-    PORT=8020
-    SECRET_KEY=change_this_to_a_random_secret_string
-    ADMIN_USERNAME=admin
-    ADMIN_PASSWORD=password
-    ```
+CLI reads encrypted config from SQLite — no login required.
 
-    > **Note**: You do not put your Cloudflare Token here. You will enter that in the web UI.
+## ☁️ Cloudflared Installation
 
-## 🖥️ Usage
+### Via Web Dashboard (recommended)
 
-1.  **Run the Application**:
-    ```bash
-    ./flaregate
-    ```
-    *Note: Ensure the `templates/` and `static/` folders are in the same directory as the binary.*
+1. Open `http://localhost:8020`
+2. Click the **Health Status card** (Running/Stopped)
+3. Modal auto-detects:
+   - **Docker mode** → cloudflared already in image → "Start cloudflared" button
+   - **Binary mode** → OS detection + sudo password input → auto download + install + systemd service
+4. Progress log shown in real-time
 
-2.  **Access the Dashboard**:
-    Open your browser and navigate to:
-    `http://localhost:8020`
+### Via CLI (manual)
 
-3.  **First Time Setup**:
-    - Log in with the `ADMIN_USERNAME` and `ADMIN_PASSWORD` you set in `.env`.
-    - You will be greeted by the **Setup Wizard**.
-    - Enter your **Cloudflare API Token**.
-      - *Required Permissions*: `Account:Read`, `Zone:Read`, `DNS:Edit`, `Tunnel:Edit`.
-    - Click **Verify**, select your desired Tunnel, and Click **Save & Continue**.
+```bash
+flaregate token
+# Output: cloudflared tunnel run --token <TOKEN>
 
-4.  **Manage Routes**:
-    - Use the **Add New Hostname** button to map a subdomain (e.g., `app.example.com`) to a local service (e.g., `http://localhost:3000`).
-    - The tool will automatically handle the DNS CNAME and Ingress configuration for you.
+# Install cloudflared
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf
+sudo install -m 755 /tmp/cf /usr/local/bin/cloudflared
+rm /tmp/cf
 
-### ⚡ Quick NAT VPS Provisioning
+# Install as systemd service
+sudo cloudflared service install <TOKEN>
+sudo systemctl enable --now cloudflared
+```
 
-If you just want the fast flow on a NAT VPS, use the helper script:
+## ⚡ Python Provision Script (NAT VPS helper)
+
+Dependency-free, runs on minimal VPS images:
 
 ```bash
 python3 scripts/flaregate-provision.py
 ```
 
-It will ask for:
-- the hostname you want, and
-- the upstream target to forward to (`ip:port` or full URL)
+Interactive flow: ask token → hostname → target → auto create tunnel + DNS + ingress.
 
-Then it will:
-- create or reuse a Cloudflare Tunnel,
-- create/update the DNS CNAME,
-- automatically remove conflicting DNS records for the same hostname when needed,
-- push the ingress config,
-- save a small state file under `~/.local/share/flaregate/`.
-
-You can also pass non-interactive flags:
-
+Non-interactive:
 ```bash
 python3 scripts/flaregate-provision.py \
   --hostname app.example.com \
@@ -107,28 +102,74 @@ python3 scripts/flaregate-provision.py \
   --token "$CLOUDFLARE_API_TOKEN"
 ```
 
-If you prefer Make:
+State files saved under `~/.local/share/flaregate/` with `chmod 600`.
+
+## 🐳 Docker
 
 ```bash
-make provision
+docker build -t flaregate .
+docker run -d -p 8020:8020 -v $(pwd)/data:/app/data flaregate
+```
+
+Dockerfile includes cloudflared pre-installed. Health card modal shows "Start cloudflared" directly.
+
+## 🛡️ Security
+
+| Layer | Implementation |
+|---|---|
+| API Token storage | AES-256-GCM encrypted in SQLite |
+| Tunnel Token storage | AES-256-GCM encrypted |
+| User password | bcrypt hashed |
+| Session auth | PASETO v4 local (symmetric), 7-day expiry |
+| Cookie | HttpOnly, auto-invalidated on restart |
+| API tokens | `json:"-"` — never serialized |
+| Secret key | Generated on first run, stored in `data/secret.key` (0600) |
+| Encryption key | SHA-256 derived from secret key |
+| Nonce | Random per encryption (crypto/rand) |
+| Input validation | FQDN hostname check, service format check |
+
+**Required Cloudflare API token permissions:**
+```
+Zone:DNS:Edit
+Account:Cloudflare Tunnel:Edit
+```
+
+## 🔧 Build
+
+```bash
+# Prerequisites: Go 1.24+
+cd /workspaces/FlareGate
+go mod tidy
+go build -ldflags="-w -s" -o flaregate .
 ```
 
 ## 📂 Project Structure
 
 ```
-├── data/               # SQLite database storage (created on first run)
-├── static/             # Static assets (favicon, css, js)
-├── templates/          # HTML templates (Go templates)
-├── main.go             # Main application logic
-├── go.mod              # Go module definition
-├── .env                # Environment configuration
-└── README.md           # This file
+├── main.go                   # Web server + auth + API endpoints
+├── cli.go                    # CLI command dispatcher
+├── go.mod / go.sum
+├── Dockerfile                # Multi-stage with cloudflared
+├── Makefile
+├── internal/
+│   ├── cloudflare/client.go  # Cloudflare V4 API client
+│   ├── config/config.go      # SQLite store + AES-GCM encryption
+│   └── tunnel/runner.go      # cloudflared process lifecycle
+├── scripts/
+│   └── flaregate-provision.py
+├── templates/                # Go HTML templates
+├── static/                   # Static assets
+└── data/                     # Runtime data (auto-created)
+    ├── tunnel.db             # SQLite config
+    ├── secret.key            # Encryption key (0600)
+    └── cloudflared.log
 ```
 
-## ⚠️ Common Issues
+## 🔗 Related
 
-- **"gcc: executable file not found"**: The SQLite driver requires CGO. Install `build-essential` on Ubuntu/Debian (`sudo apt install build-essential`) or MinGW on Windows.
-- **"Port 8020 is already in use"**: The app will fail to start if the port is busy. Kill the process using the port (command provided in logs) or change `PORT` in `.env`.
+- [Cloudflare Tunnel docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+- [Cloudflare API tokens](https://dash.cloudflare.com/profile/api-tokens)
 
 ---
-*Built with ❤️ using Go and Cloudflare API*
+
+*Built with ❤️ by HIJILABS*
